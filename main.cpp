@@ -22,8 +22,13 @@ int main(){
         a=it->key;
         std::cout<<it->key<<"\t"<<it->value<<std::endl;
     }
-    std::cout<<is<<std::endl;
 
+    if(is)
+        std::cout<<"顺序有误"<<std::endl;
+    else
+        std::cout<<"顺序无误"<<std::endl;
+
+    std::cout<<sl.length()<<"\t"<<sl.deep()<<std::endl;
     // for (auto it = sl.end(); it != sl.begin(); it--)
     // {
     //     std::cout<<it->key<<"\t"<<it->value<<std::endl;

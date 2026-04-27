@@ -1,6 +1,8 @@
 #ifndef MSKIPLIST
 #define MSKIPLIST
 
+#include<iostream>
+
 #include<iterator>
 #include<memory>
 #include<vector>
@@ -21,6 +23,7 @@ private:
     };
     node* _first=nullptr;
     node* _last=nullptr;
+    int _gap=3;//有三个中间节点就构建索引，主要影响插入删除的索引构建，topBuildAndIndex不受影响
     int _deep=-1;
     int _length=0;
 public:
@@ -103,6 +106,41 @@ private:
         _length+=other._length;
         _deep=0;
     };
+    inline bool moveRight(node** right,int deep){
+        int nodeCount=_gap%2==0?_gap/2:_gap/2+1;
+        for (int i = 0; i < nodeCount; i++)
+        {
+            if((*right)->right.size()<deep+1) return false;
+            (*right)=(*right)->right[deep];
+        }
+        return true;
+    }
+    inline bool moveLeft(node** left,int deep){
+        int nodeCount=_gap%2==0?_gap/2:_gap/2+1;
+        for (int i = 0; i < nodeCount; i++)
+        {
+            if((*left)->left.size()<deep+1) return false;
+            (*left)=(*left)->left[deep];
+        }
+        return true;
+    }
+    inline void traverseToIndexedChild(node** pleft,node** pright,int& deep,int& count){
+        while(true){
+            if((*pleft)->right.size()<=deep+1){//left的右侧是否不包含下一层的索引
+                if((*pleft)->left.size()>=deep+1){//left左侧是否有节点
+                    (*pleft)=(*pleft)->left[deep];
+                    ++count;
+                }
+            }
+            if((*pright)->left.size()<=deep+1){//right的左侧是否不包含下一层的索引
+                if((*pright)->right.size()>=deep+1){//right右侧是否有节点
+                    (*pright)=(*pright)->right[deep];
+                    ++count;
+                }
+            }
+            if(((*pright)->right.size()<deep+1||(*pright)->left.size()>deep+1)&&((*pleft)->left.size()<deep+1||(*pleft)->right.size()>deep+1)) break;
+        }
+    }
     inline void topBuildAndIndex(){//从first的最高层向上构建索引
         node* left=_first;//第一个节点
         node* right=left;
@@ -111,7 +149,7 @@ private:
         while (true)
         {
             if(right->right.size()<deep+1||right->right[deep]->right.size()<deep+1){//若本节点为1,则检查第2、第3节点在deep+1层是否为空
-                deep++;//将层数索引更新到最新
+                ++deep;//将层数索引更新到最新
                 //检查本层是否为两个节点，从最右侧向左，其中最右侧的节点数需在外部加，如果是则跳出循环，deep为层深，其中第0层为原始数据
                 //这时候right和left指向同一节点
                 if(count<=2) break;
@@ -189,21 +227,7 @@ private:
             }
         }
         while(true){
-            while(true){
-                if(left->right.size()<=deep+1){//left的右侧是否不包含下一层的索引
-                    if(left->left.size()>=deep+1){//left左侧是否有节点
-                        left=left->left[deep];
-                        ++count;
-                    }
-                }
-                if(right->left.size()<=deep+1){//right的左侧是否不包含下一层的索引
-                    if(right->right.size()>=deep+1){//right右侧是否有节点
-                        right=right->right[deep];
-                        ++count;
-                    }
-                }
-                if((right->right.size()<deep+1||right->left.size()>deep+1)&&(left->left.size()<deep+1||left->right.size()>deep+1)) break;
-            }
+            traverseToIndexedChild(&left,&right,deep,count);
             //下面要求使用count，这时right或left可能被修改了，但ptr没有被修改
             if(build_status==BuildsStatus::first){
                 //这时left和ptr均指向first，而right指向首节点或者距离最近的有着下一层节点的节点，count是包含双端节点的计数
@@ -228,7 +252,7 @@ private:
                 break;
             }else if(build_status==BuildsStatus::last){
                 //这时right和ptr均指向last，而left指向首节点或者距离最近的有着下一层节点的节点，count是包含双端节点的计数
-                if(count<3) return;
+                if(count<3) break;
                 left->right.push_back(right);
                 right->left.push_back(left);
                 left=right;//调整left的位置，以便向上检查节点
@@ -297,7 +321,7 @@ private:
         }
     }; 
 public:
-    mSkipList()=default;
+    mSkipList(int gap=3):_gap(gap){};
     ~mSkipList(){ 
         clear(); 
     };
