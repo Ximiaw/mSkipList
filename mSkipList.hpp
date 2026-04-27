@@ -282,19 +282,16 @@ private:
         node* ptr=_first;
         while (true)
         {
-            if(!ptr) return nullptr;
-            if(ptr->data->key==key) return ptr;
-            if(ptr->right.size()<deep+1||ptr->data->key>key){//检查当前节点在当前层右边是否还有索引，或者ptr指向的key否大于key
-                if(deep<=0){
-                    //这里是查到原始数据但是没有找到，于是返回最后一个指针
-                    return ptr;
-                }
-                if(ptr->left.size()>=deep+1)
-                    ptr=ptr->left[deep];//如果直接在原始数据的第一个节点进入该分支会在上面的 deep==0 return，因此这里无需添加边界判断
-                --deep;
+            if(ptr->right.size()<deep+1){
+                deep--;
                 continue;
             }
-            if(ptr->data->key<key){
+            if(ptr->right[deep]->data->key==key) return ptr->right[deep];
+            if(ptr->right[deep]->data->key>key){
+                if(deep==0) return ptr;
+                deep--;
+                continue;
+            }else{
                 ptr=ptr->right[deep];
             }
         }
