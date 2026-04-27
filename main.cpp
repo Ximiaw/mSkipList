@@ -5,7 +5,9 @@ int main(){
     mSkipList<int,int> sl;
 
     std::random_device rd;
-    std::mt19937 gen(rd());
+    unsigned int ri=2039810493;
+    std::cout<<"随机数为"<<ri<<std::endl;
+    std::mt19937 gen(ri);
     std::uniform_int_distribution<> dist(1,10000);
 
     for (int i = 0; i < 100000; i++)

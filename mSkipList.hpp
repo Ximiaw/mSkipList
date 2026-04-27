@@ -263,13 +263,11 @@ private:
                     //此时的deep直接作为vector的索引能拿到当前活动索引层的节点
                     //ptr指向新插入的节点，而left和right是指向首节点或者距离最近的有着下一层节点的节点，count是包含双端节点的计数
                     if(count<5||count>5) break;
-                    if(deep==_deep) break;//哪怕符合建立索引的规则，但是已经在最上层了，不允许继续建
+                    if(deep+1>_deep) break;//哪怕符合建立索引的规则，但是已经在最上层了，不允许继续建
                     ++deep;
                     ptr=left->right[0]->right[0];
-                    left->right.resize(deep+1);
                     left->right[deep]=ptr;
                     ptr->left.push_back(left);
-                    right->left.resize(deep+1);
                     right->left[deep]=ptr;
                     ptr->right.push_back(right);
                     left=right=ptr;
