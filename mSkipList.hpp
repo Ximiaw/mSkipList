@@ -239,6 +239,7 @@ private:
                     //此时的deep直接作为vector的索引能拿到当前活动索引层的节点
                     //ptr指向新插入的节点，而left和right是指向首节点或者距离最近的有着下一层节点的节点，count是包含双端节点的计数
                     if(count<5||count>5) break;
+                    if(deep==_deep) break;//哪怕符合建立索引的规则，但是已经在最上层了，不允许继续建
                     ++deep;
                     ptr=left->right[0]->right[0];
                     left->right.resize(deep+1);
@@ -275,11 +276,13 @@ private:
     };
     inline node* find(K key){//若为空则返回null，若查到则返回目标节点，若没查到则返回法间应插入缝隙的左/右节点
         if(!_first) return nullptr;
+        if(_first->data->key>key) return _first;
+        if(_last->data->key<key) return _last;
         int deep=_deep;
         node* ptr=_first;
         while (true)
         {
-            if(!ptr||!ptr->data) return nullptr;
+            if(!ptr) return nullptr;
             if(ptr->data->key==key) return ptr;
             if(ptr->right.size()<deep+1||ptr->data->key>key){//检查当前节点在当前层右边是否还有索引，或者ptr指向的key否大于key
                 if(deep<=0){
