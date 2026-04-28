@@ -3,5 +3,6 @@
 #include<random>
 
 int main(){
-    mSkipList<int,int> sl;
+    mSkipListModel<int,int> sm;
+    auto sl=sm.getView(3);
 }

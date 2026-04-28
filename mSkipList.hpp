@@ -42,19 +42,19 @@ private:
 private:
     std::vector<std::weak_ptr<mSkipListView<K,V>>> views_;//使用该数据的视图
 public:
-    std::shared_ptr<mSkipListView> getView(int gap){
-        std::shared_ptr<mSkipListView<K,V>> view = std::make_shared<mSkipListView<K,V>>(&first_,gap,inform);
+    std::shared_ptr<mSkipListView<K,V>> getView(int gap){
+        std::shared_ptr<mSkipListView<K,V>> view = std::make_shared<mSkipListView<K,V>>(&first_,gap,this);
         views_.push_back(view);
         return view;
     };
     void inform(node<K,V>* changedNode){
-        for (auto it = views_.begin(); i != views_.end(); i++)
+        for (auto it = views_.begin(); it != views_.end(); it++)
         {
-            if((*it)->expired()){
-                it = views_.erase(it)
+            if(it->expired()){
+                it = views_.erase(it);
                 if(it==views_.end()) return;
             }
-            (*it)->buildAndIndex(changedNode);
+            it->lock()->buildAndIndex(changedNode);
         }
     };
 };
@@ -68,8 +68,8 @@ struct v_node{
     std::vector<v_node<K,V>*> rightIndex;
 
     std::shared_ptr<node<K,V>>* pnode=nullptr;
-    std::shared_ptr<node<K,V>>& node(){ return (*pnode); };
-    KV& data(){ (*node)->data; };
+    std::shared_ptr<node<K,V>>& getNode(){ return (*pnode); };
+    KV<K,V>& data(){ return (*pnode)->data; };
 };
 
 template<Key K,typename V>
@@ -79,21 +79,24 @@ private:
     std::shared_ptr<v_node<K,V>> last_;
     int gap;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMinGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
-    int deep=0;//第0层表示原始数据，还未建立索引
-    void (*inform)(ndoe* changedNode);
+    int deep=0;//表第deep+1层索引
+    mSkipListModel<K,V>* dataModel;
+    void inform(node<K,V>* changedNode){ dataModel->inform(changedNode); };
 public:
-    mSkipListView(std::shared_ptr<node<K,V>>* pfirst,int gap,void (*inform)(node<K,V>* changedNode)):
-        gap(gap),inform(inform){
+    mSkipListView(std::shared_ptr<node<K,V>>* pfirst,int gap,mSkipListModel<K,V>* model):
+        gap(gap),dataModel(model){
+        first_=std::make_shared<v_node<K,V>>();
+        last_=first_;
         first_->pnode=pfirst;
         
-        last_=first_;
         while(true){
-            if(last_->node()->right){
+            if(last_->getNode()&&last_->getNode()->right){
                 initConnect(last_,new v_node<K,V>);
+                last_->right->pnode=&last_->getNode()->right;
                 last_=last_->right;
-            }else(
+            }else{
                 break;
-            )
+            }
         }
     };
     ~mSkipListView()=default;
@@ -102,20 +105,20 @@ public:
     mSkipListView& operator=(const mSkipListView<K,V>& other)=delete;
     mSkipListView& operator=(mSkipListView<K,V>&& other)=delete;
 private:
-    void initConnect(std::shared_ptr<v_node<K,V>>& left,v_node<K,V> right){
-        left->right=right;
+    void initConnect(std::shared_ptr<v_node<K,V>>& left,v_node<K,V>* right){
+        left->right=std::shared_ptr<v_node<K,V>>{right};
         left->right->left=left;
     };
     void connect(v_node<K,V>* left,v_node<K,V>* right,int deep){
         
     };
+public:
+    const V& get(K key){};
+    void put(K key,V value){};
+    void del(K key){};
     void buildAndIndex(node<K,V>* changedNode){
 
     };
-public:
-    const V& get(K key);
-    void put(K key,V value);
-    void del(K key);
 };
 
 #endif
