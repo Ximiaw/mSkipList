@@ -9,6 +9,7 @@
 #include<vector>
 #include<concepts>
 #include<type_traits>
+#include<algorithm>
 
 template<typename K>
 concept Key = std::semiregular<K>
@@ -81,14 +82,14 @@ protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
 protected:
-    auto first() { 
+    auto& first() { 
         if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
             return static_cast<Derived*>(this)->first_;
         }else{
             return first_;
         }
     };
-    auto last() { 
+    auto& last() { 
         if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
             return static_cast<Derived*>(this)->last_;
         }else{
@@ -103,12 +104,25 @@ protected:
         }
     };
 protected:
+    // int moveLeft(){
+
+    // };
+protected:
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     int deep=0;//表第deep+1层索引
 public:
     mSkipList(int gap):gap(gap){};
-    virtual ~mSkipList()=default;
+    virtual ~mSkipList(){
+        while (first()!=last())
+        {
+            first() = first()->right;
+            delete first()->left;
+        }
+        delete first();
+        first()=nullptr;
+        last()=nullptr;
+    };
     mSkipList(const mSkipList<K,V,true>&)=delete;
     mSkipList(mSkipList<K,V,true>&&)=delete;
     mSkipList<K,V,true>& operator=(const mSkipList<K,V,true>&)=delete;
@@ -126,16 +140,26 @@ using mSkipList_view=mSkipList<K,V,true>;
 template<Key K,typename V>
 class mSkipList<K,V>:public mSkipList<K,V,true,mSkipList<K,V>>{
 protected:
+    friend class mSkipList<K,V,true,mSkipList<K,V>>;
     node<K,V>* first_=nullptr;
     node<K,V>* last_=nullptr;
-
 protected:
-    std::vector<std::weak_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
+    std::vector<std::shared_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
 
 //这里的移动和拷贝应该允许，但为方便先全部删除
 public:
     mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(gap){};
     ~mSkipList() override{
+        views_.clear();
+        if(!this->first()) return;
+        while (this->first()!=this->last())
+        {
+            this->first() = this->first()->right;
+            delete this->first()->left;
+        }
+        delete this->first();
+        this->first()=nullptr;
+        this->last()=nullptr;
     };
     mSkipList(const mSkipList<K,V>&)=delete;
     mSkipList(mSkipList<K,V>&&)=delete;
@@ -143,7 +167,15 @@ public:
     mSkipList<K,V>& operator=(mSkipList<K,V>&&)=delete;
 
 public:
-    std::shared_ptr<mSkipList_view<K,V>> getView(int gap){
+    std::weak_ptr<mSkipList_view<K,V>> getView(int gap){
+        views_.push_back(std::shared_ptr<mSkipList_view<K,V>>{new mSkipList_view<K,V>{gap}});
+        return views_.back();
+    };
+    void delView(std::weak_ptr<mSkipList_view<K,V>>& view){
+        auto shared=view.lock();
+        if(!shared) return;
+        std::remove_if(views_.begin(),views_.end()
+            ,[&shared](std::shared_ptr<mSkipList_view<K,V>>& view){ return shared==view; });
     };
 
     //通知各个视图处理节点变化后的操作
@@ -155,6 +187,8 @@ public:
     //在node的location方向，添加/删除/修改一个KV为kv的新节点
     //如果location为middle，则指node本身，如果同时为ADD则是修改该节点的将KV值
     void task(v_node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
+    };
+    void task(node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
     };
 };
 
