@@ -119,7 +119,7 @@ using mSkipList_view=mSkipList<K,V,true>;
 允许改变间隙，但改变后直到下一次插入/删除可能改变附近的索引重建并不保证完全重建，如果需要请显示调用
 */
 template<Key K,typename V>
-class mSkipList<K,V,false>:public mSkipList<K,V,true,true>{
+class mSkipList<K,V>:public mSkipList<K,V,true,true>{
 private:
     node<K,V>* first_=nullptr;
     node<K,V>* last_=nullptr;
