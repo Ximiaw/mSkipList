@@ -50,7 +50,7 @@ struct node<K,V,true>{
 
     KV<K,V>& data() { return (*pnode)->kv; };
     
-    node<K,V>** pnode=nullptr;//该指针只允许模型在其独有逻辑允许使用
+    node<K,V>** pnode=nullptr;//该指针只允许模型类在其独有逻辑允许使用
 };
 
 template<Key K,typename V>
@@ -77,10 +77,20 @@ class mSkipList;
 */
 template<Key K,typename V>
 class mSkipList<K,V,true>{
-protected:
+private:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
-
+protected:
+    //下方四个函数不应手动操作
+    virtual void* pfirst() { return first_; };
+    virtual void* plast() { return last_; };
+    virtual void* pnewNode() { return new v_node<K,V>; };
+    v_node<K,V>* toNode(void* pnode){ return reinterpret_cast<v_node<K,V>*>(pnode); };
+    
+    v_node<K,V>* first() { return toNode(pfirst()); };
+    v_node<K,V>* last() { return toNode(plast()); };
+    v_node<K,V>* newNode() { return toNode(pnewNode()); };
+protected:
     mSkipList<K,V>* base=nullptr;
 
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
@@ -105,9 +115,19 @@ using mSkipList_view=mSkipList<K,V,true>;
 */
 template<Key K,typename V>
 class mSkipList<K,V,false>:public mSkipList_view<K,V>{
-protected:
+private:
     node<K,V>* first_=nullptr;
     node<K,V>* last_=nullptr;
+protected:
+    //下方四个函数不应手动操作
+    void* pfirst() override { return first_; };
+    void* plast() override { return last_; };
+    void* pnewNode() override { return new node<K,V>; };
+    node<K,V>* toNode(void* pnode){ return reinterpret_cast<node<K,V>*>(pnode); };
+
+    node<K,V>* first() { return toNode(pfirst()); };
+    node<K,V>* last() { return toNode(plast()); };
+    node<K,V>* newNode() { return toNode(pnewNode()); };
 
 protected:
     std::vector<std::weak_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
