@@ -35,8 +35,9 @@ struct node<K,V,false>{
     node<K,V>* right=nullptr;
     std::vector<node<K,V>*> rightIndex;
 
-    KV<K,V> kv;
     KV<K,V>& data() { return kv; };
+private:
+    KV<K,V> kv;
 };
 
 template<Key K,typename V>
@@ -47,8 +48,9 @@ struct node<K,V,true>{
     node<K,V,true>* right=nullptr;
     std::vector<node<K,V,true>*> rightIndex;
 
-    node<K,V>** pnode=nullptr;
     KV<K,V>& data() { return (*pnode)->kv; };
+    
+    node<K,V>** pnode=nullptr;//该指针只允许模型在其独有逻辑允许使用
 };
 
 template<Key K,typename V>
@@ -56,18 +58,30 @@ using v_node=node<K,V,true>;
 
 //通知进行什么操作
 enum class OPERATE{
-    ADD,//原始数据先添加，而后视图更新
-    DEL//视图先更新，而后原始数据删除
+    ADD,
+    DEL
+};
+
+//表示位置，在通知数据模型是要用到
+enum class LOCATION{
+    LEFT,
+    MIDDLE,
+    RIGHT
 };
 
 template<Key K,typename V,bool isV=false>
 class mSkipList;
 
+/*
+这里是视图
+*/
 template<Key K,typename V>
 class mSkipList<K,V,true>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
+
+    mSkipList<K,V>* base=nullptr;
 
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
@@ -95,7 +109,16 @@ protected:
 public:
     std::shared_ptr<mSkipList_view<K,V>> getView(int gap){
     };
+
+    //通知各个视图处理节点变化后的操作
+    //ADD 原始数据先添加，而后视图更新
+    //DEL 视图先更新，而后原始数据删除
     void inform(node<K,V>* node,OPERATE operate){
+    };
+
+    //在node的location方向，添加/删除/修改一个KV为kv的新节点
+    //如果location为middle，则指node本身，如果同时为ADD则是修改该节点的将KV值
+    void task(v_node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
     };
 };
 
