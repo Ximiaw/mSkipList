@@ -69,14 +69,14 @@ enum class LOCATION{
     RIGHT
 };
 
-template<Key K,typename V,bool isV=false>
+template<Key K,typename V,bool isV=false,bool isBase=false>
 class mSkipList;
 
 /*
 这里是视图
 */
-template<Key K,typename V>
-class mSkipList<K,V,true>{
+template<Key K,typename V,bool isBase>
+class mSkipList<K,V,true,isBase>{
 private:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
@@ -85,11 +85,16 @@ protected:
     virtual void* pfirst() { return first_; };
     virtual void* plast() { return last_; };
     virtual void* pnewNode() { return new v_node<K,V>; };
-    v_node<K,V>* toNode(void* pnode){ return reinterpret_cast<v_node<K,V>*>(pnode); };
-    
-    v_node<K,V>* first() { return toNode(pfirst()); };
-    v_node<K,V>* last() { return toNode(plast()); };
-    v_node<K,V>* newNode() { return toNode(pnewNode()); };
+    auto toNode(void* pnode){
+        if constexpr (isBase)
+            return reinterpret_cast<node<K,V>*>(pnode);
+        else
+            return reinterpret_cast<v_node<K,V>*>(pnode);
+    };
+
+    auto first() { return toNode(pfirst()); };
+    auto last() { return toNode(plast()); };
+    auto newNode() { return toNode(pnewNode()); };
 protected:
     mSkipList<K,V>* base=nullptr;
 
@@ -114,28 +119,24 @@ using mSkipList_view=mSkipList<K,V,true>;
 允许改变间隙，但改变后直到下一次插入/删除可能改变附近的索引重建并不保证完全重建，如果需要请显示调用
 */
 template<Key K,typename V>
-class mSkipList<K,V,false>:public mSkipList_view<K,V>{
+class mSkipList<K,V,false>:public mSkipList<K,V,true,true>{
 private:
     node<K,V>* first_=nullptr;
     node<K,V>* last_=nullptr;
 protected:
-    //下方四个函数不应手动操作
+    //下方三个函数不应手动操作
     void* pfirst() override { return first_; };
     void* plast() override { return last_; };
     void* pnewNode() override { return new node<K,V>; };
-    node<K,V>* toNode(void* pnode){ return reinterpret_cast<node<K,V>*>(pnode); };
-
-    node<K,V>* first() { return toNode(pfirst()); };
-    node<K,V>* last() { return toNode(plast()); };
-    node<K,V>* newNode() { return toNode(pnewNode()); };
 
 protected:
     std::vector<std::weak_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
 
 //这里的移动和拷贝应该允许，但为方便先全部删除
 public:
-    mSkipList(int gap=3):mSkipList_view<K,V>(this,gap){};
-    ~mSkipList() override =default;
+    mSkipList(int gap=3):mSkipList<K,V,true,true>(this,gap){};
+    ~mSkipList() override{
+    };
     mSkipList(const mSkipList<K,V>&)=delete;
     mSkipList(mSkipList<K,V>&&)=delete;
     mSkipList<K,V>& operator=(const mSkipList<K,V>&)=delete;
