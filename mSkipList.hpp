@@ -69,40 +69,47 @@ enum class LOCATION{
     RIGHT
 };
 
-template<Key K,typename V,bool isV=false,bool isBase=false>
+template<Key K,typename V,bool isV=false,typename Derived=nullptr_t>
 class mSkipList;
 
 /*
 这里是视图
 */
-template<Key K,typename V,bool isBase>
-class mSkipList<K,V,true,isBase>{
-private:
+template<Key K,typename V,typename Derived>
+class mSkipList<K,V,true,Derived>{
+protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
 protected:
-    //下方四个函数不应手动操作
-    virtual void* pfirst() { return first_; };
-    virtual void* plast() { return last_; };
-    virtual void* pnewNode() { return new v_node<K,V>; };
-    auto toNode(void* pnode){
-        if constexpr (isBase)
-            return reinterpret_cast<node<K,V>*>(pnode);
-        else
-            return reinterpret_cast<v_node<K,V>*>(pnode);
+    auto first() { 
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            return static_cast<Derived*>(this)->first_;
+        }else{
+            return first_;
+        }
     };
-
-    auto first() { return toNode(pfirst()); };
-    auto last() { return toNode(plast()); };
-    auto newNode() { return toNode(pnewNode()); };
+    auto last() { 
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            return static_cast<Derived*>(this)->last_;
+        }else{
+            return last_;
+        }
+    };
+    auto newNode() { 
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            return new node<K,V>;
+        }else{
+            return new v_node<K,V>;
+        }
+    };
 protected:
-    mSkipList<K,V>* base=nullptr;
+    mSkipList<K,V>* derived=nullptr;
 
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     int deep=0;//表第deep+1层索引
 public:
-    mSkipList(mSkipList<K,V>* base,int gap):base(base),gap(gap){};
+    mSkipList(mSkipList<K,V>* base,int gap):derived(base),gap(gap){};
     virtual ~mSkipList()=default;
     mSkipList(const mSkipList<K,V,true>&)=delete;
     mSkipList(mSkipList<K,V,true>&&)=delete;
@@ -119,22 +126,17 @@ using mSkipList_view=mSkipList<K,V,true>;
 允许改变间隙，但改变后直到下一次插入/删除可能改变附近的索引重建并不保证完全重建，如果需要请显示调用
 */
 template<Key K,typename V>
-class mSkipList<K,V>:public mSkipList<K,V,true,true>{
-private:
+class mSkipList<K,V>:public mSkipList<K,V,true,mSkipList<K,V>>{
+protected:
     node<K,V>* first_=nullptr;
     node<K,V>* last_=nullptr;
-protected:
-    //下方三个函数不应手动操作
-    void* pfirst() override { return first_; };
-    void* plast() override { return last_; };
-    void* pnewNode() override { return new node<K,V>; };
 
 protected:
     std::vector<std::weak_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
 
 //这里的移动和拷贝应该允许，但为方便先全部删除
 public:
-    mSkipList(int gap=3):mSkipList<K,V,true,true>(this,gap){};
+    mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(this,gap){};
     ~mSkipList() override{
     };
     mSkipList(const mSkipList<K,V>&)=delete;
