@@ -103,13 +103,11 @@ protected:
         }
     };
 protected:
-    mSkipList<K,V>* derived=nullptr;
-
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     int deep=0;//表第deep+1层索引
 public:
-    mSkipList(mSkipList<K,V>* base,int gap):derived(base),gap(gap){};
+    mSkipList(int gap):gap(gap){};
     virtual ~mSkipList()=default;
     mSkipList(const mSkipList<K,V,true>&)=delete;
     mSkipList(mSkipList<K,V,true>&&)=delete;
@@ -136,7 +134,7 @@ protected:
 
 //这里的移动和拷贝应该允许，但为方便先全部删除
 public:
-    mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(this,gap){};
+    mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(gap){};
     ~mSkipList() override{
     };
     mSkipList(const mSkipList<K,V>&)=delete;
