@@ -24,100 +24,78 @@ struct KV{
     bool operator<(const KV& other) const { return key < other.key; }
 };
 
+template<Key K,typename V,bool isV=false>
+struct node;
+
 template<Key K,typename V>
-struct node{
-    std::weak_ptr<node<K,V>> left;
-    std::shared_ptr<node<K,V>> right;
-    KV<K,V> data;
+struct node<K,V,false>{
+    node<K,V>* left=nullptr;
+    std::vector<node<K,V>*> leftIndex;
+    
+    node<K,V>* right=nullptr;
+    std::vector<node<K,V>*> rightIndex;
+
+    KV<K,V> kv;
+    KV<K,V>& data() { return kv; };
 };
 
 template<Key K,typename V>
-class mSkipListView;
+struct node<K,V,true>{
+    node<K,V,true>* left=nullptr;
+    std::vector<node<K,V,true>*> leftIndex;
 
-template<Key K,typename V>
-class mSkipListModel{
-private:
-    std::shared_ptr<node<K,V>> first_;
-    std::shared_ptr<node<K,V>> last_;
-private:
-    std::vector<std::weak_ptr<mSkipListView<K,V>>> views_;//使用该数据的视图
-public:
-    std::shared_ptr<mSkipListView<K,V>> getView(int gap){
-        std::shared_ptr<mSkipListView<K,V>> view = std::make_shared<mSkipListView<K,V>>(&first_,gap,this);
-        views_.push_back(view);
-        return view;
-    };
-    void inform(node<K,V>* changedNode){
-        for (auto it = views_.begin(); it != views_.end(); it++)
-        {
-            if(it->expired()){
-                it = views_.erase(it);
-                if(it==views_.end()) return;
-            }
-            it->lock()->buildAndIndex(changedNode);
-        }
-    };
+    node<K,V,true>* right=nullptr;
+    std::vector<node<K,V,true>*> rightIndex;
+
+    node<K,V>** pnode=nullptr;
+    KV<K,V>& data() { return (*pnode)->kv; };
 };
 
 template<Key K,typename V>
-struct v_node{
-    std::weak_ptr<v_node<K,V>> left;
-    std::vector<v_node<K,V>*> leftIndex;
+using v_node=node<K,V,true>;
 
-    std::shared_ptr<v_node<K,V>> right;
-    std::vector<v_node<K,V>*> rightIndex;
-
-    std::shared_ptr<node<K,V>>* pnode=nullptr;
-    std::shared_ptr<node<K,V>>& getNode(){ return (*pnode); };
-    KV<K,V>& data(){ return (*pnode)->data; };
+//通知进行什么操作
+enum class OPERATE{
+    ADD,//原始数据先添加，而后视图更新
+    DEL//视图先更新，而后原始数据删除
 };
 
+template<Key K,typename V,bool isV=false>
+class mSkipList;
+
 template<Key K,typename V>
-class mSkipListView{
-private:
-    std::shared_ptr<v_node<K,V>> first_;
-    std::shared_ptr<v_node<K,V>> last_;
-    int gap;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
-    int leftAndMinGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
+class mSkipList<K,V,true>{
+protected:
+    v_node<K,V>* first_=nullptr;
+    v_node<K,V>* last_=nullptr;
+
+    int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
+    int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     int deep=0;//表第deep+1层索引
-    mSkipListModel<K,V>* dataModel;
-    void inform(node<K,V>* changedNode){ dataModel->inform(changedNode); };
-public:
-    mSkipListView(std::shared_ptr<node<K,V>>* pfirst,int gap,mSkipListModel<K,V>* model):
-        gap(gap),dataModel(model){
-        first_=std::make_shared<v_node<K,V>>();
-        last_=first_;
-        first_->pnode=pfirst;
-        
-        while(true){
-            if(last_->getNode()&&last_->getNode()->right){
-                initConnect(last_,new v_node<K,V>);
-                last_->right->pnode=&last_->getNode()->right;
-                last_=last_->right;
-            }else{
-                break;
-            }
-        }
-    };
-    ~mSkipListView()=default;
-    mSkipListView(mSkipListView<K,V>& other)=delete;
-    mSkipListView(mSkipListView<K,V>&& other)=delete;
-    mSkipListView& operator=(const mSkipListView<K,V>& other)=delete;
-    mSkipListView& operator=(mSkipListView<K,V>&& other)=delete;
-private:
-    void initConnect(std::shared_ptr<v_node<K,V>>& left,v_node<K,V>* right){
-        left->right=std::shared_ptr<v_node<K,V>>{right};
-        left->right->left=left;
-    };
-    void connect(v_node<K,V>* left,v_node<K,V>* right,int deep){
-        
-    };
-public:
-    const V& get(K key){};
-    void put(K key,V value){};
-    void del(K key){};
-    void buildAndIndex(node<K,V>* changedNode){
 
+};
+
+template<Key K,typename V>
+using mSkipList_view=mSkipList<K,V,true>;
+
+/*
+虽然可以视图和模型分离，但node的统一接口，使得模型自身带有一个视图，并且在这里的node会省下不少空间
+多视图会导致节点变动时需要长时间重整各个视图的索引，因此不推荐多视图（当然如果完成会尝试改成多线程，使得视图不多的情况下仅需等待最长的视图更新）
+允许改变间隙，但改变后直到下一次插入/删除可能改变附近的索引重建并不保证完全重建，如果需要请显示调用
+*/
+template<Key K,typename V>
+class mSkipList<K,V,false>:public mSkipList_view<K,V>{
+protected:
+    node<K,V>* first_=nullptr;
+    node<K,V>* last_=nullptr;
+
+protected:
+    std::vector<std::weak_ptr<mSkipList_view<K,V>>> views_;//使用该数据的视图
+
+public:
+    std::shared_ptr<mSkipList_view<K,V>> getView(int gap){
+    };
+    void inform(node<K,V>* node,OPERATE operate){
     };
 };
 
