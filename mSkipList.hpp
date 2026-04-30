@@ -9,7 +9,6 @@
 #include<vector>
 #include<concepts>
 #include<type_traits>
-#include<algorithm>
 
 template<typename K>
 concept Key = std::semiregular<K>
@@ -104,9 +103,28 @@ protected:
         }
     };
 protected:
-    // int moveLeft(){
+    auto leftConnectRight(void* pleft,void* pright){
+        auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
+        auto right=reinterpret_cast<decltype(first())>(pright);
 
-    // };
+    };
+    //pnode为节点指针，类型为node<K,V>或v_node<K,V>
+    auto leftConnectRight(void* pnode){
+        auto node=reinterpret_cast<decltype(first())>(pnode);
+
+    };
+    auto leftInsert(void* pnode,const KV<K,V>& kv){
+        auto node=reinterpret_cast<decltype(first())>(pnode);
+
+    };
+    auto rightInsert(void* pnode,const KV<K,V>& kv){
+        auto node=reinterpret_cast<decltype(first())>(pnode);
+
+    };
+public:
+    void task(node<K,V>* node,OPERATE operate){
+
+    };
 protected:
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
@@ -174,21 +192,39 @@ public:
     void delView(std::weak_ptr<mSkipList_view<K,V>>& view){
         auto shared=view.lock();
         if(!shared) return;
-        std::remove_if(views_.begin(),views_.end()
-            ,[&shared](std::shared_ptr<mSkipList_view<K,V>>& view){ return shared==view; });
+        std::erase_if(views_,[&shared](std::shared_ptr<mSkipList_view<K,V>>& view){ return shared==view; });
     };
 
     //通知各个视图处理节点变化后的操作
     //ADD 原始数据先添加，而后视图更新
     //DEL 视图先更新，而后原始数据删除
     void inform(node<K,V>* node,OPERATE operate){
+        this->task(node,operate);
+        for(auto& view:views_){
+            view->task(node,operate);
+        }
     };
 
     //在node的location方向，添加/删除/修改一个KV为kv的新节点
     //如果location为middle，则指node本身，如果同时为ADD则是修改该节点的将KV值
-    void task(v_node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
+    void task(v_node<K,V>* v_node,LOCATION location,OPERATE operate,KV<K,V> kv){
+        auto node=*v_node->pnode;
+        task(node,location,operate,kv);
     };
     void task(node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
+        if(location==LOCATION::MIDDLE&&operate==OPERATE::ADD){
+            node->data().value=kv.value;
+        }else if(location==LOCATION::MIDDLE&&operate==OPERATE::DEL){
+            inform(node,operate);
+            this->leftConnectRight(node);
+            delete node;
+        }else if(location==LOCATION::LEFT&&operate==OPERATE::ADD){
+            auto newNode = this->leftInsert(node,kv);
+            inform(newNode,operate);
+        }else if(location==LOCATION::RIGHT&&operate==OPERATE::ADD){
+            auto newNode = this->rightInsert(node,kv);
+            inform(newNode,operate);
+        }
     };
 };
 
