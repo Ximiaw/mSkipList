@@ -103,22 +103,46 @@ protected:
         }
     };
 protected:
-    auto leftConnectRight(void* pleft,void* pright){
+    //在现有的节点上修改连接，如果中间有节点不会处理
+    bool connectIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(first())>(pright);
-
+        if(!left||!right||left->rightIndex.size()<deep+1||right->left.size()<deep+1) return false;        
+        left->rightIndex[deep]=right;
+        right->leftIndex[deep]=left;
+        return true;
+    };
+    //连接任意节点，但是不会处理中间节点
+    bool connectNode(void* pleft,void* pright){
+        auto left=reinterpret_cast<decltype(first())>(pleft);
+        auto right=reinterpret_cast<decltype(first())>(pright);
+        if(!left||!right||!left->right||!right->left) return false;    
+        left->right=right;
+        right->left=left;
+        return true;
     };
     //pnode为节点指针，类型为node<K,V>或v_node<K,V>
-    auto leftConnectRight(void* pnode){
+    bool delNode(void* pnode){
         auto node=reinterpret_cast<decltype(first())>(pnode);
-
+        if(!node||!node->left||!node->right) return false;
+        node->left->right=node->right;
+        node->right->left=node->left;
+        delete node;
+        return true;
     };
-    auto leftInsert(void* pnode,const KV<K,V>& kv){
+    bool leftInsert(void* pnode,const KV<K,V>& kv){
         auto node=reinterpret_cast<decltype(first())>(pnode);
-
+        if(!node||!node->left) return false;
+        decltype(first()) ptr = node->left;
+        if(connectNode(ptr,newNode())&&connectNode(ptr->left,node)) return true;
+        return false;
     };
-    auto rightInsert(void* pnode,const KV<K,V>& kv){
+    bool rightInsert(void* pnode,const KV<K,V>& kv){
         auto node=reinterpret_cast<decltype(first())>(pnode);
+        if(!node||!node->right) return false;
+        decltype(first()) ptr = node->right;
+        if(connectNode(node,newNode())&&connectNode(node->right,ptr)) return true;
+        return false;
 
     };
 public:
@@ -216,8 +240,7 @@ public:
             node->data().value=kv.value;
         }else if(location==LOCATION::MIDDLE&&operate==OPERATE::DEL){
             inform(node,operate);
-            this->leftConnectRight(node);
-            delete node;
+            this->delNode(node);
         }else if(location==LOCATION::LEFT&&operate==OPERATE::ADD){
             auto newNode = this->leftInsert(node,kv);
             inform(newNode,operate);
