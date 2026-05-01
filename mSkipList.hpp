@@ -81,7 +81,7 @@ protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
-    int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
+    int leftToMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     //int deep=0;//表第deep+1层索引，没什么用可以通过first的rightIndex读到，不使用这个类变量还可以少维护一个东西
 protected:
     auto& first() { 
@@ -98,7 +98,7 @@ protected:
             return last_;
         }
     };
-    auto newNode() { 
+    auto newNode() { //decltype只有他能提供指针语义，上面两个是引用
         if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
             return new node<K,V>;
         }else{
@@ -117,6 +117,32 @@ protected:
         }
     };
 protected:
+    //pleft为插入处左边第一个有着下一层索引的节点
+    auto moveRight(void* pleft,int deep){
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);
+        for(int i=0;i<leftToMidGap();++i){
+            if(!left||left->rightIndex.size()<deep+1) return nullptr;
+            left=left->rightIndex[deep];
+        }
+        return left;
+    }
+    //pleft和pright是有着下一层节点的指针，他们在这一层（下一层）是相邻的
+    //pmiddle是需要插入到下一层索引的节点，middleDeep为pmiddle的索引最高层，middleDeep+1为pmiddle的左右索引的size
+    bool indexInsert(void* pleft,void* pmiddle,void* pright,int middleDeep){
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);
+        auto middle=reinterpret_cast<decltype(newNode())>(pmiddle);
+        auto right=reinterpret_cast<decltype(newNode())>(pright);
+        if(!left||!middle||!right
+            ||left->rightIndex.size()<=middleDeep+1||right->leftIndex.size()<=middleDeep+1
+            ||left->rightIndex[middleDeep+1]!=right||right->leftIndex[middleDeep+1]!=left
+            ||!(middle->rightIndex.size()==middleDeep+1)||!(middle->leftIndex.size()==middleDeep+1))
+            return false;
+        left->rightIndex[middleDeep+1]=middle;
+        middle->leftIndex.push_back(left);
+        right->leftIndex[middleDeep+1]=middle;
+        middle->rightIndex.push_back(right);
+        return true;
+    }
     //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
     //在现有的节点上建立新连接，如果中间有节点不会处理
     bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
