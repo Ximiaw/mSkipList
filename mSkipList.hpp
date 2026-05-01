@@ -22,6 +22,10 @@ struct KV{
     bool operator==(const KV& other) const { return key == other.key; }
     bool operator>(const KV& other) const { return key > other.key; }
     bool operator<(const KV& other) const { return key < other.key; }
+    
+    bool operator==(const K& other) const { return key == other; }
+    bool operator>(const K& other) const { return key > other; }
+    bool operator<(const K& other) const { return key < other; }
 };
 
 template<Key K,typename V,bool isV=false>
@@ -117,6 +121,43 @@ protected:
         }
     };
 protected:
+    //返回null*/node<K,V>*/v_node<K,V>*
+    //位置如果查到则返回给节点指针，如果在first前面则返回first，否则返回间隙左边节点
+    auto find(K key){
+        if(!first()) return nullptr;
+        if(first()->data()==key||first()->data()>key) return first();
+        if(last()->data()==key||last()->data()<key) return last();
+        int deep=first()->rightIndex.size()-1;
+        decltype(newNode()) ptr=first();
+        while (true)
+        {
+            if(deep==-1) break;
+            if(ptr->rightIndex.size()<deep+1){
+                --deep;
+                continue;
+            }
+            if(ptr->data()==key) return ptr;
+            if(ptr->rightIndex[deep]->data()<key){
+                ptr=ptr->rightIndex[deep];
+                continue;
+            }else{
+                --deep;
+            }
+        }
+        while (true)
+        {
+            if(ptr->data()==key) return ptr;
+            if(!ptr->right) return ptr;
+            if(ptr->right->data()>key) return ptr;
+            ptr=ptr->right;
+        }
+    }
+    //只清理索引，其他不保证
+    void clearIndex(void* pnode){
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
+        node->leftIndex.clear();
+        node->rightIndex.clear();
+    }
     //这里pleft和pright是指针，这个两个形参需要传入二级指针，寻找pnode左右最近的有着下一层索引的节点
     //pnode是即将提升索引的节点，deep是pnode所在的层高，deep+1为pnode的左右索引的size
     //返回值是包含pnode的相邻两个有着下一层索引的节点中间的节点数
@@ -178,7 +219,7 @@ protected:
         return true;
     }
     //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
-    //在现有的节点上建立新连接，如果中间有节点不会处理
+    //在现有的节点上建立新连接，但不会处理中间节点和原始节点
     bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(newNode())>(pright);
@@ -187,7 +228,7 @@ protected:
         right->leftIndex.push_back(left);
         return true;
     };
-    //在现有的节点上修改连接，如果中间有节点不会处理
+    //在现有的节点上修改连接，但不会处理中间节点和原始节点
     bool connectIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过newNode确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(newNode())>(pright);//值的注意的是只有newNode是节点的指针，first和last是指针的引用
@@ -196,7 +237,7 @@ protected:
         right->leftIndex[deep]=left;
         return true;
     };
-    //连接任意节点，但是不会处理中间节点
+    //连接任意节点，但是不会处理中间节点和索引
     bool connectNode(void* pleft,void* pright){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         auto right=reinterpret_cast<decltype(newNode())>(pright);
