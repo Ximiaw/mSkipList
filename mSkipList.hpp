@@ -154,8 +154,12 @@ protected:
             new_ptr->pnode=kv;
         }
         if(first()){
-            if(connectNode(new_ptr,first())) return new_ptr;
+            if(!connectNode(new_ptr,first())){
+                delete new_ptr;
+                return nullptr;
+            };
             first() = new_ptr;
+            return new_ptr;
         }else{
             first() = new_ptr;
             last() = new_ptr;
@@ -173,8 +177,12 @@ protected:
             new_ptr->pnode=kv;
         }
         if(last()){
-            if(connectNode(last(),new_ptr)) return new_ptr;
+            if(!connectNode(last(),new_ptr)){
+                delete new_ptr;
+                return nullptr;
+            }
             last() = new_ptr;
+            return new_ptr;
         }else{
             first() = new_ptr;
             last() = new_ptr;
