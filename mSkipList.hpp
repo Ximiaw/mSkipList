@@ -163,8 +163,8 @@ protected:
         }else{
             first() = new_ptr;
             last() = new_ptr;
+            return new_ptr;
         }
-        return nullptr;
     };
     auto lastRightInsert(void* pkv){
         auto new_ptr = newNode();
@@ -186,8 +186,8 @@ protected:
         }else{
             first() = new_ptr;
             last() = new_ptr;
+            return new_ptr;  
         }
-        return nullptr;
     };
     //kv可能是KV*或者node<K,V>**
     //指针长度为代在一个计算机内固定长度，无论几重指针，也就是kv为node<K,V>**时，可以认为kv是node<K,V>*的指针
