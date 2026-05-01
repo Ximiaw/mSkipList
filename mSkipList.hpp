@@ -117,7 +117,41 @@ protected:
         }
     };
 protected:
-    //pleft为插入处左边第一个有着下一层索引的节点
+    //这里pleft和pright是指针，这个两个形参需要传入二级指针，寻找pnode左右最近的有着下一层索引的节点
+    //pnode是即将提升索引的节点，deep是pnode所在的层高，deep+1为pnode的左右索引的size
+    //返回值是包含pnode的相邻两个有着下一层索引的节点中间的节点数
+    auto traverseToIndexedChild(void* pleft,void* pright,void* pnode,int deep){
+        auto left=reinterpret_cast<decltype(&newNode())>(pleft);
+        auto right=reinterpret_cast<decltype(&newNode())>(pright);
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
+        if(!node||!left||!right
+            ||node->leftIndex.size()>deep+1
+            ||node->rightIndex.size()>deep+1)
+            return 0;
+        decltype(newNode()) ptr_left=node;
+        decltype(newNode()) ptr_right=node;
+        int count=1;//下方while不会包含node本身这个计数
+        while (true)
+        {
+            if(ptr_left->leftIndex.size()==deep+1){
+                ptr_left=ptr_left->leftIndex[deep];
+                ++count;
+            }else if(ptr_left->leftIndex.size()<deep+1){
+                return 0;
+            }
+            if(ptr_right->rightIndex.size()==deep+1){
+                ptr_right=ptr_right->rightIndex[deep];
+                ++count;
+            }else if(ptr_right->rightIndex.size()<deep+1){
+                return 0;
+            }
+            if(ptr_left->rightIndex.size()>deep+1&&ptr_right->leftIndex.size()>deep+1) break;
+        }
+        (*left)=ptr_left;
+        (*right)=ptr_right;
+        return count;
+    }
+    //pleft为插入处左边第一个有着下一层索引的节点，因为首节点必定拥有所有层索引，所以moveLeft不再写
     auto moveRight(void* pleft,int deep){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         for(int i=0;i<leftToMidGap();++i){
