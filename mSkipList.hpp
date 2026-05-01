@@ -1,14 +1,14 @@
 #ifndef MSKIPLIST
 #define MSKIPLIST
 
-#include<iostream>//test
+//#include<iostream>//test
 
-#include<cassert>
-#include<iterator>
+//#include<cassert>
+//#include<iterator>
 #include<memory>
 #include<vector>
 #include<concepts>
-#include<type_traits>
+//#include<type_traits>
 
 template<typename K>
 concept Key = std::semiregular<K>
@@ -105,12 +105,23 @@ protected:
             return new v_node<K,V>;
         }
     };
+    void loadData(void* new_ptr,void* pkv){
+        decltype(newNode()) node = reinterpret_cast<decltype(newNode())>(new_ptr);
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
+            node->data()=*kv;
+        }else{
+            //v_node的pnode是node<K,V>**
+            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
+            node->pnode=kv;
+        }
+    };
 protected:
     //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
     //在现有的节点上建立新连接，如果中间有节点不会处理
     bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
-        auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
-        auto right=reinterpret_cast<decltype(first())>(pright);
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
+        auto right=reinterpret_cast<decltype(newNode())>(pright);
         if(!left||!right||left->rightIndex.size()>=deep+1||right->left.size()>=deep+1) return false;
         left->rightIndex.push_back(right);
         right->leftIndex.push_back(left);
@@ -118,8 +129,8 @@ protected:
     };
     //在现有的节点上修改连接，如果中间有节点不会处理
     bool connectIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
-        auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
-        auto right=reinterpret_cast<decltype(first())>(pright);
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过newNode确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
+        auto right=reinterpret_cast<decltype(newNode())>(pright);//值的注意的是只有newNode是节点的指针，first和last是指针的引用
         if(!left||!right||left->rightIndex.size()<deep+1||right->left.size()<deep+1) return false;        
         left->rightIndex[deep]=right;
         right->leftIndex[deep]=left;
@@ -127,8 +138,8 @@ protected:
     };
     //连接任意节点，但是不会处理中间节点
     bool connectNode(void* pleft,void* pright){
-        auto left=reinterpret_cast<decltype(first())>(pleft);
-        auto right=reinterpret_cast<decltype(first())>(pright);
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);
+        auto right=reinterpret_cast<decltype(newNode())>(pright);
         if(!left||!right||!left->right||!right->left) return false;    
         left->right=right;
         right->left=left;
@@ -136,7 +147,7 @@ protected:
     };
     //pnode为中间节点的指针，类型为node<K,V>或v_node<K,V>
     bool delNode(void* pnode){
-        auto node=reinterpret_cast<decltype(first())>(pnode);
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
         if(!node||!node->left||!node->right) return false;
         node->left->right=node->right;
         node->right->left=node->left;
@@ -145,14 +156,7 @@ protected:
     };
     auto firstLeftInsert(void* pkv){
         auto new_ptr = newNode();
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
-            new_ptr->data()=*kv;
-        }else{
-            //v_node的pnode是node<K,V>**
-            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
-            new_ptr->pnode=kv;
-        }
+        loadData(new_ptr,pkv);
         if(first()){
             if(!connectNode(new_ptr,first())){
                 delete new_ptr;
@@ -168,14 +172,7 @@ protected:
     };
     auto lastRightInsert(void* pkv){
         auto new_ptr = newNode();
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
-            new_ptr->data()=*kv;
-        }else{
-            //v_node的pnode是node<K,V>**
-            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
-            new_ptr->pnode=kv;
-        }
+        loadData(new_ptr,pkv);
         if(last()){
             if(!connectNode(last(),new_ptr)){
                 delete new_ptr;
@@ -192,34 +189,20 @@ protected:
     //kv可能是KV*或者node<K,V>**
     //指针长度为代在一个计算机内固定长度，无论几重指针，也就是kv为node<K,V>**时，可以认为kv是node<K,V>*的指针
     auto leftInsert(void* pnode,void* pkv){
-        auto node=reinterpret_cast<decltype(first())>(pnode);
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
         if(!node||!node->left) return nullptr;
-        decltype(first()) ptr = node->left;
+        decltype(newNode()) ptr = node->left;
         auto new_ptr = newNode();
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
-            new_ptr->data()=*kv;
-        }else{
-            //v_node的pnode是node<K,V>**
-            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
-            new_ptr->pnode=kv;
-        }
+        loadData(new_ptr,pkv);
         if(connectNode(ptr,new_ptr)&&connectNode(new_ptr,node)) return new_ptr;
         return nullptr;
     };
     auto rightInsert(void* pnode,void* pkv){
-        auto node=reinterpret_cast<decltype(first())>(pnode);
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
         if(!node||!node->right) return nullptr;
-        decltype(first()) ptr = node->right;
+        decltype(newNode()) ptr = node->right;
         auto new_ptr = newNode();
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
-            new_ptr->data()=*kv;
-        }else{
-            //v_node的pnode是node<K,V>**
-            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
-            new_ptr->pnode=kv;
-        }
+        loadData(new_ptr,pkv);
         if(connectNode(node,new_ptr)&&connectNode(new_ptr,ptr)) return new_ptr;
         return nullptr;
     };
