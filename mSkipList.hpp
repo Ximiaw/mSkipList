@@ -143,6 +143,44 @@ protected:
         delete node;
         return true;
     };
+    auto firstLeftInsert(void* pkv){
+        auto new_ptr = newNode();
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
+            new_ptr->data()=*kv;
+        }else{
+            //v_node的pnode是node<K,V>**
+            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
+            new_ptr->pnode=kv;
+        }
+        if(first()){
+            if(connectNode(new_ptr,first())) return new_ptr;
+            first() = new_ptr;
+        }else{
+            first() = new_ptr;
+            last() = new_ptr;
+        }
+        return nullptr;
+    };
+    auto lastRightInsert(void* pkv){
+        auto new_ptr = newNode();
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
+            new_ptr->data()=*kv;
+        }else{
+            //v_node的pnode是node<K,V>**
+            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
+            new_ptr->pnode=kv;
+        }
+        if(last()){
+            if(connectNode(last(),new_ptr)) return new_ptr;
+            last() = new_ptr;
+        }else{
+            first() = new_ptr;
+            last() = new_ptr;
+        }
+        return nullptr;
+    };
     //kv可能是KV*或者node<K,V>**
     //指针长度为代在一个计算机内固定长度，无论几重指针，也就是kv为node<K,V>**时，可以认为kv是node<K,V>*的指针
     auto leftInsert(void* pnode,void* pkv){
