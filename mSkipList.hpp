@@ -121,9 +121,29 @@ protected:
         }
     };
 protected:
+    //todo：构建原始数据和索引的连接，删除逻辑
+
+    //只构建当前层的索引，pnode是新增加的节点，deep为要构建的层数（righIndex[deep]）
+    bool buildAndIndex(void* pnode,int deep){
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
+        decltype(newNode()) left=nullptr;
+        decltype(newNode()) right=nullptr;
+        int nodeCount = traverseToIndexedChild(&left,&right,node,deep);
+        if(nodeCount<gap+2) return false;
+        nodeCount-=3;//去除头尾节点，和尾节点的左边节点，避免新建索引和right相邻
+        int fre = nodeCount/leftToMidGap();
+        decltype(newNode()) ptr=nullptr;
+        for(int i=0;i<fre;++i){
+            ptr = moveRight(left,deep);
+            if(!ptr) return false;//计算好的循环，如果不够就是错误，但还好索引没断开
+            if(!indexInsert(left,ptr,right,deep)) return false;//这个函数对层数非常敏感，但是经过traverseToIndexedChild后中间能遍历到的都是最高只有当前节点的
+            left=ptr;
+        }
+        return true;
+    }
     //返回null*/node<K,V>*/v_node<K,V>*
     //位置如果查到则返回给节点指针，如果在first前面则返回first，否则返回间隙左边节点
-    auto find(K key){
+    auto find(const K& key){
         if(!first()) return nullptr;
         if(first()->data()==key||first()->data()>key) return first();
         if(last()->data()==key||last()->data()<key) return last();
@@ -161,9 +181,9 @@ protected:
     //这里pleft和pright是指针，这个两个形参需要传入二级指针，寻找pnode左右最近的有着下一层索引的节点
     //pnode是即将提升索引的节点，deep是pnode所在的层高，deep+1为pnode的左右索引的size
     //返回值是包含pnode的相邻两个有着下一层索引的节点中间的节点数
-    auto traverseToIndexedChild(void* pleft,void* pright,void* pnode,int deep){
-        auto left=reinterpret_cast<decltype(&newNode())>(pleft);
-        auto right=reinterpret_cast<decltype(&newNode())>(pright);
+    int traverseToIndexedChild(void* ppleft,void* ppright,void* pnode,int deep){
+        auto left=reinterpret_cast<decltype(&newNode())>(ppleft);
+        auto right=reinterpret_cast<decltype(&newNode())>(ppright);
         auto node=reinterpret_cast<decltype(newNode())>(pnode);
         if(!node||!left||!right
             ||node->leftIndex.size()>deep+1
@@ -223,7 +243,7 @@ protected:
     bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(newNode())>(pright);
-        if(!left||!right||left->rightIndex.size()>=deep+1||right->left.size()>=deep+1) return false;
+        if(!left||!right||left->rightIndex.size()>=deep+1||right->leftIndex.size()>=deep+1) return false;
         left->rightIndex.push_back(right);
         right->leftIndex.push_back(left);
         return true;
@@ -232,7 +252,7 @@ protected:
     bool connectIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过newNode确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(newNode())>(pright);//值的注意的是只有newNode是节点的指针，first和last是指针的引用
-        if(!left||!right||left->rightIndex.size()<deep+1||right->left.size()<deep+1) return false;        
+        if(!left||!right||left->rightIndex.size()<deep+1||right->leftIndex.size()<deep+1) return false;        
         left->rightIndex[deep]=right;
         right->leftIndex[deep]=left;
         return true;
