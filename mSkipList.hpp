@@ -50,7 +50,7 @@ struct node<K,V,true>{
 
     KV<K,V>& data() { return (*pnode)->kv; };
     
-    node<K,V>** pnode=nullptr;//该指针只允许模型类在其独有逻辑允许使用
+    node<K,V>** pnode=nullptr;//该指针只允许模型类在其独有逻辑允许使用，或视图类的条件编译使用
 };
 
 template<Key K,typename V>
@@ -80,6 +80,9 @@ class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
+    int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
+    int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
+    //int deep=0;//表第deep+1层索引，没什么用可以通过first的rightIndex读到，不使用这个类变量还可以少维护一个东西
 protected:
     auto& first() { 
         if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
@@ -103,6 +106,16 @@ protected:
         }
     };
 protected:
+    //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
+    //在现有的节点上建立新连接，如果中间有节点不会处理
+    bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
+        auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
+        auto right=reinterpret_cast<decltype(first())>(pright);
+        if(!left||!right||left->rightIndex.size()>=deep+1||right->left.size()>=deep+1) return false;
+        left->rightIndex.push_back(right);
+        right->leftIndex.push_back(left);
+        return true;
+    };
     //在现有的节点上修改连接，如果中间有节点不会处理
     bool connectIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
         auto left=reinterpret_cast<decltype(first())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
@@ -121,7 +134,7 @@ protected:
         right->left=left;
         return true;
     };
-    //pnode为节点指针，类型为node<K,V>或v_node<K,V>
+    //pnode为中间节点的指针，类型为node<K,V>或v_node<K,V>
     bool delNode(void* pnode){
         auto node=reinterpret_cast<decltype(first())>(pnode);
         if(!node||!node->left||!node->right) return false;
@@ -130,32 +143,55 @@ protected:
         delete node;
         return true;
     };
-    bool leftInsert(void* pnode,const KV<K,V>& kv){
+    //kv可能是KV*或者node<K,V>**
+    //指针长度为代在一个计算机内固定长度，无论几重指针，也就是kv为node<K,V>**时，可以认为kv是node<K,V>*的指针
+    auto leftInsert(void* pnode,void* pkv){
         auto node=reinterpret_cast<decltype(first())>(pnode);
-        if(!node||!node->left) return false;
+        if(!node||!node->left) return nullptr;
         decltype(first()) ptr = node->left;
-        if(connectNode(ptr,newNode())&&connectNode(ptr->left,node)) return true;
-        return false;
+        auto new_ptr = newNode();
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
+            new_ptr->data()=*kv;
+        }else{
+            //v_node的pnode是node<K,V>**
+            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
+            new_ptr->pnode=kv;
+        }
+        if(connectNode(ptr,new_ptr)&&connectNode(new_ptr,node)) return new_ptr;
+        return nullptr;
     };
-    bool rightInsert(void* pnode,const KV<K,V>& kv){
+    auto rightInsert(void* pnode,void* pkv){
         auto node=reinterpret_cast<decltype(first())>(pnode);
-        if(!node||!node->right) return false;
+        if(!node||!node->right) return nullptr;
         decltype(first()) ptr = node->right;
-        if(connectNode(node,newNode())&&connectNode(node->right,ptr)) return true;
-        return false;
-
+        auto new_ptr = newNode();
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            auto kv = reinterpret_cast<KV<K,V>*>(pkv);
+            new_ptr->data()=*kv;
+        }else{
+            //v_node的pnode是node<K,V>**
+            auto kv = reinterpret_cast<decltype(first()->pnode)>(pkv);
+            new_ptr->pnode=kv;
+        }
+        if(connectNode(node,new_ptr)&&connectNode(new_ptr,ptr)) return new_ptr;
+        return nullptr;
     };
+
 public:
     void task(node<K,V>* node,OPERATE operate){
+        if(operate==OPERATE::ADD){
+            //node是新添加的节点，需要给他建立索引
 
+        }else if(operate==OPERATE::DEL){
+            //node是将删除的节点，清理他的索引
+
+        }
     };
-protected:
-    int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
-    int leftAndMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
-    int deep=0;//表第deep+1层索引
 public:
     mSkipList(int gap):gap(gap){};
     virtual ~mSkipList(){
+        if(!first()) return;
         while (first()!=last())
         {
             first() = first()->right;
@@ -223,7 +259,7 @@ public:
     //ADD 原始数据先添加，而后视图更新
     //DEL 视图先更新，而后原始数据删除
     void inform(node<K,V>* node,OPERATE operate){
-        this->task(node,operate);
+        this->task(node,operate);//自身类型和其他视图类型不一样，这导致需要单独调用
         for(auto& view:views_){
             view->task(node,operate);
         }
@@ -242,10 +278,10 @@ public:
             inform(node,operate);
             this->delNode(node);
         }else if(location==LOCATION::LEFT&&operate==OPERATE::ADD){
-            auto newNode = this->leftInsert(node,kv);
+            auto newNode = this->leftInsert(node,&kv);
             inform(newNode,operate);
         }else if(location==LOCATION::RIGHT&&operate==OPERATE::ADD){
-            auto newNode = this->rightInsert(node,kv);
+            auto newNode = this->rightInsert(node,&kv);
             inform(newNode,operate);
         }
     };
