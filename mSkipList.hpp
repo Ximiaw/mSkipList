@@ -403,7 +403,7 @@ protected:
 protected:
     //插入节点后处理索引，node是新添加的节点的指针
     bool fInsertBuildAndIndex(node<K,V>* node){
-        
+        return true;
     }
     bool mInsertBuildAndIndex(node<K,V>* node){
         if(!node||!node->left||!node->right) return false;
@@ -446,12 +446,12 @@ protected:
         ptr=base;
         for (int deep = 0; deep < first()->rightIndex.size()-1; deep++)
         {
-            count=traverseToIndexedChild(&pleft,&pright,ptr,deep);
+            count=traverseToIndexedChild(&left,&right,ptr,deep);
             if(count<gap+2) break;
             count-=3;
             int fre=count/leftToMidGap();
             for(int i=0;i<fre;++i){
-                ptr=moveRight(pleft);
+                ptr=moveRight(left);
                 if(!ptr) return false;
                 if(!indexInsert(left,ptr,right,deep)) return false;
                 left=ptr;
