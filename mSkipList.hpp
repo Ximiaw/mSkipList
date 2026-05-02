@@ -8,6 +8,7 @@
 #include<memory>
 #include<vector>
 #include<concepts>
+#include<stdexcept>
 //#include<type_traits>
 
 template<typename K>
@@ -84,9 +85,11 @@ class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
-    int maxDeep=-2;//最高的层数
+    long long lenght=0;
+    int maxDeep_=-2;//最高的层数
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftToMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
+    mSkipList<K,V>* base=nullptr;
     //int deep=0;//表第deep+1层索引，没什么用可以通过first的rightIndex读到，不使用这个类变量还可以少维护一个东西
 protected:
     auto& first() { 
@@ -122,6 +125,12 @@ protected:
         }
     };
 protected:
+    //todo 继续写工具函数
+    //穿透的由底向上的索引构建
+    //某一区间的索引检查并构建合法索引
+    //头插/尾插对索引的特殊情况处理
+    //头/尾插删的函数
+
     //只构建当前层的索引，pnode是新增加的节点，deep为要构建的层数（righIndex[deep]）
     bool buildAndIndex(void* pnode,int deep){
         auto node=reinterpret_cast<decltype(newNode())>(pnode);
@@ -139,7 +148,7 @@ protected:
             left=ptr;
         }
         return true;
-    }
+    };
     bool buildAndIndexNode(void* pnode){
         auto node=reinterpret_cast<decltype(newNode())>(pnode);
         decltype(newNode()) left=nullptr;
@@ -156,7 +165,7 @@ protected:
             left=ptr;
         }
         return true;
-    }
+    };
     //返回null*/node<K,V>*/v_node<K,V>*
     //位置如果查到则返回给节点指针，如果在first前面则返回first，否则返回间隙左边节点
     auto find(const K& key){
@@ -187,13 +196,13 @@ protected:
             if(ptr->right->data()>key) return ptr;
             ptr=ptr->right;
         }
-    }
+    };
     //只清理索引，其他不保证
     void clearIndex(void* pnode){
         auto node=reinterpret_cast<decltype(newNode())>(pnode);
         node->leftIndex.clear();
         node->rightIndex.clear();
-    }
+    };
     //这里pleft和pright是指针，这个两个形参需要传入二级指针，寻找pnode左右最近的有着下一层索引的节点
     //pnode是即将提升索引的节点，deep是pnode所在的层高，deep+1为pnode的左右索引的size
     //返回值是包含pnode的相邻两个有着下一层索引的节点中间的节点数
@@ -227,7 +236,7 @@ protected:
         (*left)=ptr_left;
         (*right)=ptr_right;
         return count;
-    }
+    };
     int traverseToIndexedChildNode(void* ppleft,void* ppright,void* pnode){
         auto left=reinterpret_cast<decltype(&newNode())>(ppleft);
         auto right=reinterpret_cast<decltype(&newNode())>(ppright);
@@ -258,7 +267,7 @@ protected:
         (*left)=ptr_left;
         (*right)=ptr_right;
         return count;
-    }
+    };
     //pleft为插入处左边第一个有着下一层索引的节点，因为首节点必定拥有所有层索引，所以moveLeft不再写
     auto moveRight(void* pleft,int deep){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
@@ -267,7 +276,7 @@ protected:
             left=left->rightIndex[deep];
         }
         return left;
-    }
+    };
     auto moveRightNode(void* pleft){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         for(int i=0;i<leftToMidGap();++i){
@@ -275,7 +284,7 @@ protected:
             left=left->right;
         }
         return left;
-    }
+    };
     //pleft和pright是有着下一层节点的指针，他们在这一层（下一层）是相邻的
     //pmiddle是需要插入到下一层索引的节点，middleDeep为pmiddle的索引最高层，middleDeep+1为pmiddle的左右索引的size
     bool indexInsert(void* pleft,void* pmiddle,void* pright,int middleDeep){
@@ -292,7 +301,7 @@ protected:
         right->leftIndex[middleDeep+1]=middle;
         middle->rightIndex.push_back(right);
         return true;
-    }
+    };
     bool indexInsertNode(void* pleft,void* pmiddle,void* pright){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         auto middle=reinterpret_cast<decltype(newNode())>(pmiddle);
@@ -306,7 +315,7 @@ protected:
         right->leftIndex[0]=middle;
         middle->rightIndex.push_back(right);
         return true;
-    }
+    };
     //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
     //在现有的节点上建立新连接，但不会处理中间节点和原始节点
     bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所操控将节点的层数
@@ -401,151 +410,16 @@ protected:
         return nullptr;
     };
 protected:
-    bool fDeleteNodeAndIndex(node<K,V>* node){
-        auto pnode=find(node->data().key);
-        //为null/无该key
-        if(!pnode||pnode->data()!=node->data()) return false;
-        //为一个节点
-        if(!pnode->right){
-            delete pnode;
-            first()=last()=nullptr;
-            return true;
-        }
-        //至少两个节点
-        int deep=pnode->rightIndex.size()-1;
-        for(int i=-1;i<deep;++i){
-            if(!indexInsert(pnode,pnode->right,pnode->rightIndex[i],i)) return false;
-        }
-        first()=first()->right;
-        if(!delNode(first()->left)) return false;
-        first()->leftIndex.clear();//特例
-        if(first()->rightIndex.size()!=first()->right->leftIndex.size()) return true;
-        pnode=first();
-        int deep=pnode->right->rightIndex.size()-1;
-        for(int i=0;i<deep;++i){
-            if(!connectIndex(pnode,pnode->right,i)) return false;
-        }
-        if(deep>=1)
-            clearIndex(pnode->right);
-        return ;
-    }
-    bool mDeleteNodeAndIndex(node<K,V>* node){
-        auto pnode=find(node->data().key);
-        if(!pnode||pnode->data()!=node->data()) return false;
-        int deep=pnode->leftIndex.size()-1;
-        for(int i=0;i<=deep;++i){
-            if(!connectIndex(pnode->leftIndex[i],pnode->rightIndex[i],deep)) return false;
-        }
-        clearIndex(pnode);
-        if(!delNode(pnode)) return false;
+    bool deleteNodeAndIndex(node<K,V>* node){
         return true;
-    }
-    //插入节点后处理索引，node是新添加的节点的指针，调用方需要保证没有其他节点和其重复
-    bool lInsertBuildAndIndex(node<K,V>* node){
-        decltype(newNode()) ptr=nullptr;
-        decltype(newNode()) left=nullptr;
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            if(!last()){
-                if(lastRightInsert(&node->data())) return true;
-                else return false;
-            }
-            ptr=lastRightInsert(&node->data());
-        }else{
-            //这里没办法拿到二级指针，只能通过CRTP拿
-            decltype(&newNode()) pptr=&static_cast<Derived*>(this)->last();
-            if(!last()){
-                if(lastRightInsert(pptr)) return true;
-                else return false;
-            }
-            ptr=lastRightInsert(pptr);
-        }
-        left=ptr->left;
-        return mInsertBuildAndIndex(node->left);//检测左边边旧的last节点是否达到需要构建索引的程度
-    }
-    bool fInsertBuildAndIndex(node<K,V>* node){
-        decltype(newNode()) ptr=nullptr;
-        decltype(newNode()) right=nullptr;
-        int deep=first()->rightIndex.size()-1;
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            if(!first()){
-                if(firstLeftInsert(&node->data())) return true;
-                else return false;
-            }
-            ptr=firstLeftInsert(&node->data());
-        }else{
-            //这里没办法拿到二级指针，只能通过CRTP拿
-            decltype(&newNode()) pptr=&static_cast<Derived*>(this)->first();
-            if(!first()){
-                if(firstLeftInsert(pptr)) return true;
-                else return false;
-            }
-            ptr=firstLeftInsert(pptr);
-        }
-        right=ptr->right;
-        for(int i=0;i<=deep;++i){
-            if(!connectNewIndex(ptr,right,i)) return false;
-            connectNode(ptr,right->rightIndex[i]);
-        }
-        clearIndex(right);
-        return mInsertBuildAndIndex(node->right);//检测右边旧的first节点是否达到需要构建索引的程度
-    }
+    };
     //插入节点后处理索引，node是新添加的节点的指针
-    bool mInsertBuildAndIndex(node<K,V>* node){
-        if(!node||!node->left||!node->right) return false;
-        decltype(newNode()) left=nullptr;
-        decltype(newNode()) right=nullptr;
-        decltype(newNode()) ptr=nullptr;
-        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
-            left=ptr=node;
-            if(left->data()==node->data()){
-                left->data().value=node->data().value;
-                return true;
-            }
-        }else{
-            left=find(node->data());
-            if(left->data()==node->data()){
-                left->data().value=node->data().value;
-                return true;
-            }
-            if(!(left->data()<node->data())) return false;
-            //关于&node->left->right
-            //视图里面需要插入node<K,V>**，而数据层节点在数据模型处已经插入并连接
-            //因此这里node的左边有着node<K,V>*
-            //为了拿到node的可信任二级指针，因此拿左节点的右指针（是指向node的node<K,V>*)
-            ptr=rightInsert(left,&node->left->right);
-        }
-
-        //从最低点查询是否建立节点，如果满足条件则建立合适节点的第零层索引
-        int count=traverseToIndexedChildNode(&left,&right,ptr);
-        if(count<gap+2) return false;
-        count-=3;
-        int fre=count/leftToMidGap();
-        for(int i=0;i<fre;++i){
-            ptr=moveRightNode(left);
-            if(!ptr) return false;
-            if(!indexInsertNode(left,ptr,right)) return false;
-            left=ptr;
-        }
-        //下面会一直建立新的索引，不跑最上层是因为将那些工作留给topBuildAndIndex以简化逻辑
-        //这时的ptr指向最接近right的有着下一层的新插入的节点
-        for (int deep = 0; deep < first()->rightIndex.size()-1; deep++)
-        {
-            count=traverseToIndexedChild(&left,&right,ptr,deep);
-            if(count<gap+2) break;
-            count-=3;
-            int fre=count/leftToMidGap();
-            for(int i=0;i<fre;++i){
-                ptr=moveRight(left);
-                if(!ptr) return false;
-                if(!indexInsert(left,ptr,right,deep)) return false;
-                left=ptr;
-            }
-        }
-        return topBuildAndIndex();
-    }
+    bool insertNodeAndIndex(node<K,V>* node){
+        return true;
+    };
     //在最顶层向上构建索引，无论是顶层索引还是从原始数据开始
     bool topBuildAndIndex(){
-        if(maxDeep==first()->rightIndex.size()-1) return false;
+        if(maxDeep_==first()->rightIndex.size()-1) return false;
         //first为nullptr
         if(!first()) return true;
         int count=0;
@@ -554,7 +428,7 @@ protected:
         decltype(newNode()) ptr=nullptr;
         while (true)
         {
-            if(maxDeep==first()->rightIndex.size()-1) return false;
+            if(maxDeep_==first()->rightIndex.size()-1) return false;
             int deep=first()->rightIndex.size()-1;
             if(deep==-1){
                 //没有上层索引
@@ -583,20 +457,56 @@ protected:
             }
         }
         return true;
-    }
+    };
 
 public:
+    const V& get(const K& key){
+        auto node = find(key);
+        if(node&&node->data()==key) return node->data().value;
+        throw std::runtime_error("key not found.");
+    };
+    void put(K& key,V& value){
+        if(first()->data()>key)
+            base->task(first(),LOCATION::LEFT,OPERATE::ADD,KV{key,value});
+        else if(first()->data()==key)
+            base->task(first(),LOCATION::MIDDLE,OPERATE::ADD,KV{key,value});
+        else if(last()->data()==key)
+            base->task(last(),LOCATION::MIDDLE,OPERATE::ADD,KV{key,value});
+        else if(last()->data()<key)
+            base->task(last(),LOCATION::RIGHT,OPERATE::ADD,KV{key,value});
+        else
+            base->task(find(key),LOCATION::RIGHT,OPERATE::ADD,KV{key,value});
+    };
+    bool exists(const K& key){
+        //todo
+        return true;
+    };
+    const long long size(){
+        return lenght;
+    };
+    const int deep(){
+        return first()->rightIndex.size();
+    };
+    const int maxDeep(){
+        return maxDeep_;
+    };
+    void setMaxDeep(int max){
+        maxDeep_=max-1;
+        //todo 截断索引高度
+    };
     void task(node<K,V>* node,OPERATE operate){
         if(operate==OPERATE::ADD){
             //node是新添加的节点，需要给他建立索引
-
+            insertNodeAndIndex(node);
+            ++lenght;
         }else if(operate==OPERATE::DEL){
             //node是将删除的节点，清理他的索引
-
+            deleteNodeAndIndex(node);
+            --lenght;
         }
     };
 public:
-    mSkipList(int gap):gap(gap){};
+    mSkipList(int gap,mSkipList<K,V>* base):gap(gap),base(base){};
     virtual ~mSkipList(){
         if(!first()) return;
         while (first()!=last())
@@ -633,7 +543,7 @@ protected:
 
 //这里的移动和拷贝应该允许，但为方便先全部删除
 public:
-    mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(gap){};
+    mSkipList(int gap=3):mSkipList<K,V,true,mSkipList<K,V>>(gap,this){};
     ~mSkipList() override{
         views_.clear();
         if(!this->first()) return;
@@ -653,7 +563,7 @@ public:
 
 public:
     std::weak_ptr<mSkipList_view<K,V>> getView(int gap){
-        views_.push_back(std::shared_ptr<mSkipList_view<K,V>>{new mSkipList_view<K,V>{gap}});
+        views_.push_back(std::shared_ptr<mSkipList_view<K,V>>{new mSkipList_view<K,V>{gap,this}});
         return views_.back();
     };
     void delView(std::weak_ptr<mSkipList_view<K,V>>& view){
