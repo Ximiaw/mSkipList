@@ -271,7 +271,7 @@ protected:
     auto moveRightNode(void* pleft){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         for(int i=0;i<leftToMidGap();++i){
-            if(!left||left->right) return nullptr;
+            if(!left||!left->right) return nullptr;
             left=left->right;
         }
         return left;
@@ -332,7 +332,7 @@ protected:
     bool connectNode(void* pleft,void* pright){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         auto right=reinterpret_cast<decltype(newNode())>(pright);
-        if(!left||!right||!left->right||!right->left) return false;    
+        if(!left||!right) return false;
         left->right=right;
         right->left=left;
         return true;
@@ -399,7 +399,7 @@ protected:
         return nullptr;
     };
 protected:
-    //在最顶层构建索引，适配原始数据层
+    //在最顶层向上构建索引，无论是顶层索引还是从原始数据开始
     bool topBuildAndIndex(){
         if(maxDeep==first()->rightIndex.size()-1) return false;
         //first为nullptr
