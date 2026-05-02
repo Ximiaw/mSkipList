@@ -141,6 +141,23 @@ protected:
         }
         return true;
     }
+    bool buildAndIndexNode(void* pnode){
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
+        decltype(newNode()) left=nullptr;
+        decltype(newNode()) right=nullptr;
+        int nodeCount = traverseToIndexedChildNode(&left,&right,node);
+        if(nodeCount<gap+2) return false;
+        nodeCount-=3;//去除头尾节点，和尾节点的左边节点，避免新建索引和right相邻
+        int fre = nodeCount/leftToMidGap();
+        decltype(newNode()) ptr=nullptr;
+        for(int i=0;i<fre;++i){
+            ptr = moveRightNode(left);
+            if(!ptr) return false;//计算好的循环，如果不够就是错误，但还好索引没断开
+            if(!indexInsertNode(left,ptr,right)) return false;//这个函数对层数比较敏感，但是经过traverseToIndexedChild后中间能遍历到的都是最高只有当前节点的
+            left=ptr;
+        }
+        return true;
+    }
     //返回null*/node<K,V>*/v_node<K,V>*
     //位置如果查到则返回给节点指针，如果在first前面则返回first，否则返回间隙左边节点
     auto find(const K& key){
@@ -212,12 +229,51 @@ protected:
         (*right)=ptr_right;
         return count;
     }
+    int traverseToIndexedChildNode(void* ppleft,void* ppright,void* pnode){
+        auto left=reinterpret_cast<decltype(&newNode())>(ppleft);
+        auto right=reinterpret_cast<decltype(&newNode())>(ppright);
+        auto node=reinterpret_cast<decltype(newNode())>(pnode);
+        if(!node||!left||!right
+            ||!node->left
+            ||!node->right)
+            return 0;
+        decltype(newNode()) ptr_left=node;
+        decltype(newNode()) ptr_right=node;
+        int count=1;//下方while不会包含node本身这个计数
+        while (true)
+        {
+            if(ptr_left->leftIndex.size()==0){
+                ptr_left=ptr_left->left;
+                ++count;
+            }else if(!ptr_left->left){
+                return 0;
+            }
+            if(ptr_right->rightIndex.size()==0){
+                ptr_right=ptr_right->right;
+                ++count;
+            }else if(!ptr_right->right){
+                return 0;
+            }
+            if(ptr_left->rightIndex.size()>0&&ptr_right->leftIndex.size()>0) break;
+        }
+        (*left)=ptr_left;
+        (*right)=ptr_right;
+        return count;
+    }
     //pleft为插入处左边第一个有着下一层索引的节点，因为首节点必定拥有所有层索引，所以moveLeft不再写
     auto moveRight(void* pleft,int deep){
         auto left=reinterpret_cast<decltype(newNode())>(pleft);
         for(int i=0;i<leftToMidGap();++i){
             if(!left||left->rightIndex.size()<deep+1) return nullptr;
             left=left->rightIndex[deep];
+        }
+        return left;
+    }
+    auto moveRightNode(void* pleft){
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);
+        for(int i=0;i<leftToMidGap();++i){
+            if(!left||left->right) return nullptr;
+            left=left->right;
         }
         return left;
     }
@@ -235,6 +291,20 @@ protected:
         left->rightIndex[middleDeep+1]=middle;
         middle->leftIndex.push_back(left);
         right->leftIndex[middleDeep+1]=middle;
+        middle->rightIndex.push_back(right);
+        return true;
+    }
+    bool indexInsertNode(void* pleft,void* pmiddle,void* pright){
+        auto left=reinterpret_cast<decltype(newNode())>(pleft);
+        auto middle=reinterpret_cast<decltype(newNode())>(pmiddle);
+        auto right=reinterpret_cast<decltype(newNode())>(pright);
+        if(!left||!middle||!right
+            ||left->rightIndex.size()==0||right->leftIndex.size()==0
+            ||middle->rightIndex.size()!=0||middle->leftIndex.size()!=0)
+            return false;
+        left->rightIndex[0]=middle;
+        middle->leftIndex.push_back(left);
+        right->leftIndex[0]=middle;
         middle->rightIndex.push_back(right);
         return true;
     }
