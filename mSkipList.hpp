@@ -479,6 +479,11 @@ public:
         else
             base->task(find(key),LOCATION::RIGHT,OPERATE::ADD,KV{key,value});
     };
+    void del(const K& key){
+        auto node = find(key);
+        if(node&&node->data()==key)
+            base->task(node,LOCATION::MIDDLE,OPERATE::DEL,KV{});
+    }
     bool exists(const K& key){
         auto node = find(key);
         if(node&&node->data()==key) return true;
@@ -536,6 +541,7 @@ public:
     mSkipList<K,V,true>& operator=(const mSkipList<K,V,true>&)=delete;
     mSkipList<K,V,true>& operator=(mSkipList<K,V,true>&&)=delete;
 public:
+    //todo 迭代器的失效约定
     class iterator{
     private:
         void* first_;
@@ -674,6 +680,10 @@ public:
     //在node的location方向，添加/删除/修改一个KV为kv的新节点
     //如果location为middle，则指node本身，如果同时为ADD则是修改该节点的将KV值
     //多视图导致的开销，使得在有外部视图时，需要find两次，多了一次查询
+    void task(v_node<K,V>* v_node,LOCATION location,OPERATE operate,KV<K,V> kv){
+        auto node=*v_node->pnode;
+        task(node,location,operate,kv);
+    };
     void task(node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
         if(location==LOCATION::MIDDLE&&operate==OPERATE::ADD){
             node->data().value=kv.value;
