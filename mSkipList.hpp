@@ -401,9 +401,33 @@ protected:
         return nullptr;
     };
 protected:
-    //插入节点后处理索引，node是新添加的节点的指针
+    //插入节点后处理索引，node是新添加的节点的指针，调用方需要保证没有其他节点和其重复
     bool fInsertBuildAndIndex(node<K,V>* node){
-        return true;
+        decltype(newNode()) ptr=nullptr;
+        decltype(newNode()) right=nullptr;
+        int deep=first()->rightIndex.size()-1;
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            if(!first()){
+                if(firstLeftInsert(&node->data())) return true;
+                else return false;
+            }
+            ptr=firstLeftInsert(&node->data());
+        }else{
+            //这里没办法拿到二级指针，只能通过CRTP拿
+            decltype(&newNode()) pptr=&static_cast<Derived*>(this)->first();
+            if(!first()){
+                if(firstLeftInsert(pptr)) return true;
+                else return false;
+            }
+            ptr = firstLeftInsert(pptr);
+        }
+        right=ptr->right;
+        for(int i=0;i<=deep;++i){
+            if(!connectNewIndex(ptr,right,i)) return false;
+            connectNode(ptr,right->rightIndex[i]);
+        }
+        clearIndex(right);
+        return mInsertBuildAndIndex(node->right);//检测右边旧的first节点是否达到需要构建索引的程度
     }
     bool mInsertBuildAndIndex(node<K,V>* node){
         if(!node||!node->left||!node->right) return false;
