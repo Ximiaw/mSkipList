@@ -401,6 +401,45 @@ protected:
         return nullptr;
     };
 protected:
+    bool fDeleteNodeAndIndex(node<K,V>* node){
+        auto pnode=find(node->data().key);
+        //为null/无该key
+        if(!pnode||pnode->data()!=node->data()) return false;
+        //为一个节点
+        if(!pnode->right){
+            delete pnode;
+            first()=last()=nullptr;
+            return true;
+        }
+        //至少两个节点
+        int deep=pnode->rightIndex.size()-1;
+        for(int i=-1;i<deep;++i){
+            if(!indexInsert(pnode,pnode->right,pnode->rightIndex[i],i)) return false;
+        }
+        first()=first()->right;
+        if(!delNode(first()->left)) return false;
+        first()->leftIndex.clear();//特例
+        if(first()->rightIndex.size()!=first()->right->leftIndex.size()) return true;
+        pnode=first();
+        int deep=pnode->right->rightIndex.size()-1;
+        for(int i=0;i<deep;++i){
+            if(!connectIndex(pnode,pnode->right,i)) return false;
+        }
+        if(deep>=1)
+            clearIndex(pnode->right);
+        return ;
+    }
+    bool mDeleteNodeAndIndex(node<K,V>* node){
+        auto pnode=find(node->data().key);
+        if(!pnode||pnode->data()!=node->data()) return false;
+        int deep=pnode->leftIndex.size()-1;
+        for(int i=0;i<=deep;++i){
+            if(!connectIndex(pnode->leftIndex[i],pnode->rightIndex[i],deep)) return false;
+        }
+        clearIndex(pnode);
+        if(!delNode(pnode)) return false;
+        return true;
+    }
     //插入节点后处理索引，node是新添加的节点的指针，调用方需要保证没有其他节点和其重复
     bool lInsertBuildAndIndex(node<K,V>* node){
         decltype(newNode()) ptr=nullptr;
@@ -440,7 +479,7 @@ protected:
                 if(firstLeftInsert(pptr)) return true;
                 else return false;
             }
-            ptr = firstLeftInsert(pptr);
+            ptr=firstLeftInsert(pptr);
         }
         right=ptr->right;
         for(int i=0;i<=deep;++i){
@@ -475,7 +514,6 @@ protected:
             //为了拿到node的可信任二级指针，因此拿左节点的右指针（是指向node的node<K,V>*)
             ptr=rightInsert(left,&node->left->right);
         }
-        auto base=ptr;//记录以方便后续向上层建立索引
 
         //从最低点查询是否建立节点，如果满足条件则建立合适节点的第零层索引
         int count=traverseToIndexedChildNode(&left,&right,ptr);
@@ -489,7 +527,7 @@ protected:
             left=ptr;
         }
         //下面会一直建立新的索引，不跑最上层是因为将那些工作留给topBuildAndIndex以简化逻辑
-        ptr=base;
+        //这时的ptr指向最接近right的有着下一层的新插入的节点
         for (int deep = 0; deep < first()->rightIndex.size()-1; deep++)
         {
             count=traverseToIndexedChild(&left,&right,ptr,deep);
@@ -502,7 +540,6 @@ protected:
                 if(!indexInsert(left,ptr,right,deep)) return false;
                 left=ptr;
             }
-            ptr=base;
         }
         return topBuildAndIndex();
     }
@@ -637,10 +674,7 @@ public:
 
     //在node的location方向，添加/删除/修改一个KV为kv的新节点
     //如果location为middle，则指node本身，如果同时为ADD则是修改该节点的将KV值
-    void task(v_node<K,V>* v_node,LOCATION location,OPERATE operate,KV<K,V> kv){
-        auto node=*v_node->pnode;
-        task(node,location,operate,kv);
-    };
+    //多视图导致的开销，使得在有外部视图时，需要find两次，多了一次查询
     void task(node<K,V>* node,LOCATION location,OPERATE operate,KV<K,V> kv){
         if(location==LOCATION::MIDDLE&&operate==OPERATE::ADD){
             node->data().value=kv.value;
