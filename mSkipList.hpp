@@ -402,6 +402,27 @@ protected:
     };
 protected:
     //插入节点后处理索引，node是新添加的节点的指针，调用方需要保证没有其他节点和其重复
+    bool lInsertBuildAndIndex(node<K,V>* node){
+        decltype(newNode()) ptr=nullptr;
+        decltype(newNode()) left=nullptr;
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            if(!last()){
+                if(lastRightInsert(&node->data())) return true;
+                else return false;
+            }
+            ptr=lastRightInsert(&node->data());
+        }else{
+            //这里没办法拿到二级指针，只能通过CRTP拿
+            decltype(&newNode()) pptr=&static_cast<Derived*>(this)->last();
+            if(!last()){
+                if(lastRightInsert(pptr)) return true;
+                else return false;
+            }
+            ptr=lastRightInsert(pptr);
+        }
+        left=ptr->left;
+        return mInsertBuildAndIndex(node->left);//检测左边边旧的last节点是否达到需要构建索引的程度
+    }
     bool fInsertBuildAndIndex(node<K,V>* node){
         decltype(newNode()) ptr=nullptr;
         decltype(newNode()) right=nullptr;
@@ -429,6 +450,7 @@ protected:
         clearIndex(right);
         return mInsertBuildAndIndex(node->right);//检测右边旧的first节点是否达到需要构建索引的程度
     }
+    //插入节点后处理索引，node是新添加的节点的指针
     bool mInsertBuildAndIndex(node<K,V>* node){
         if(!node||!node->left||!node->right) return false;
         decltype(newNode()) left=nullptr;
