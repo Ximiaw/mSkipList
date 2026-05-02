@@ -84,7 +84,7 @@ class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
-    int maxDeep=-1;//最高的层数
+    int maxDeep=-2;//最高的层数
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftToMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     //int deep=0;//表第deep+1层索引，没什么用可以通过first的rightIndex读到，不使用这个类变量还可以少维护一个东西
@@ -387,6 +387,7 @@ protected:
         auto new_ptr = newNode();
         loadData(new_ptr,pkv);
         if(connectNode(ptr,new_ptr)&&connectNode(new_ptr,node)) return new_ptr;
+        delete new_ptr;
         return nullptr;
     };
     auto rightInsert(void* pnode,void* pkv){
@@ -396,9 +397,69 @@ protected:
         auto new_ptr = newNode();
         loadData(new_ptr,pkv);
         if(connectNode(node,new_ptr)&&connectNode(new_ptr,ptr)) return new_ptr;
+        delete new_ptr;
         return nullptr;
     };
 protected:
+    //插入节点后处理索引，node是新添加的节点的指针
+    bool fInsertBuildAndIndex(node<K,V>* node){
+        
+    }
+    bool mInsertBuildAndIndex(node<K,V>* node){
+        if(!node||!node->left||!node->right) return false;
+        decltype(newNode()) left=nullptr;
+        decltype(newNode()) right=nullptr;
+        decltype(newNode()) ptr=nullptr;
+        if constexpr(std::is_base_of_v<mSkipList<K,V,true,Derived>,Derived>){
+            left=ptr=node;
+            if(left->data()==node->data()){
+                left->data().value=node->data().value;
+                return true;
+            }
+        }else{
+            left=find(node->data());
+            if(left->data()==node->data()){
+                left->data().value=node->data().value;
+                return true;
+            }
+            if(!(left->data()<node->data())) return false;
+            //关于&node->left->right
+            //视图里面需要插入node<K,V>**，而数据层节点在数据模型处已经插入并连接
+            //因此这里node的左边有着node<K,V>*
+            //为了拿到node的可信任二级指针，因此拿左节点的右指针（是指向node的node<K,V>*)
+            ptr=rightInsert(left,&node->left->right);
+        }
+        auto base=ptr;//记录以方便后续向上层建立索引
+
+        //从最低点查询是否建立节点，如果满足条件则建立合适节点的第零层索引
+        int count=traverseToIndexedChildNode(&left,&right,ptr);
+        if(count<gap+2) return false;
+        count-=3;
+        int fre=count/leftToMidGap();
+        for(int i=0;i<fre;++i){
+            ptr=moveRightNode(left);
+            if(!ptr) return false;
+            if(!indexInsertNode(left,ptr,right)) return false;
+            left=ptr;
+        }
+        //下面会一直建立新的索引，不跑最上层是因为将那些工作留给topBuildAndIndex以简化逻辑
+        ptr=base;
+        for (int deep = 0; deep < first()->rightIndex.size()-1; deep++)
+        {
+            count=traverseToIndexedChild(&pleft,&pright,ptr,deep);
+            if(count<gap+2) break;
+            count-=3;
+            int fre=count/leftToMidGap();
+            for(int i=0;i<fre;++i){
+                ptr=moveRight(pleft);
+                if(!ptr) return false;
+                if(!indexInsert(left,ptr,right,deep)) return false;
+                left=ptr;
+            }
+            ptr=base;
+        }
+        return topBuildAndIndex();
+    }
     //在最顶层向上构建索引，无论是顶层索引还是从原始数据开始
     bool topBuildAndIndex(){
         if(maxDeep==first()->rightIndex.size()-1) return false;
@@ -410,11 +471,12 @@ protected:
         decltype(newNode()) ptr=nullptr;
         while (true)
         {
+            if(maxDeep==first()->rightIndex.size()-1) return false;
             int deep=first()->rightIndex.size()-1;
             if(deep==-1){
                 //没有上层索引
                 count=traverseToIndexedChildNode(&pleft,&pright,first());
-                if(count<leftToMidGap()+2) break;
+                if(count<gap+2) break;
                 count-=1;//这里-1是去除首节点，因为是原始数据因此末尾可以建立索引
                 int fre=count/leftToMidGap();
                 for(int i=0;i<fre;++i){
@@ -426,7 +488,7 @@ protected:
             }else{
                 //至少有着一层索引
                 count=traverseToIndexedChild(&pleft,&pright,first(),deep);
-                if(count<leftToMidGap()+2) break;
+                if(count<gap+2) break;
                 count-=1;//这里-1是去除首节点，因为是原始数据因此末尾可以建立索引
                 int fre=count/leftToMidGap();
                 for(int i=0;i<fre;++i){
