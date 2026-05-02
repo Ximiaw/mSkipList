@@ -411,10 +411,12 @@ protected:
     };
 protected:
     bool deleteNodeAndIndex(node<K,V>* node){
+        //todo
         return true;
     };
     //插入节点后处理索引，node是新添加的节点的指针
     bool insertNodeAndIndex(node<K,V>* node){
+        //todo
         return true;
     };
     //在最顶层向上构建索引，无论是顶层索引还是从原始数据开始
@@ -478,8 +480,9 @@ public:
             base->task(find(key),LOCATION::RIGHT,OPERATE::ADD,KV{key,value});
     };
     bool exists(const K& key){
-        //todo
-        return true;
+        auto node = find(key);
+        if(node&&node->data()==key) return true;
+        return false;
     };
     const long long size(){
         return lenght;
@@ -492,7 +495,17 @@ public:
     };
     void setMaxDeep(int max){
         maxDeep_=max-1;
-        //todo 截断索引高度
+        decltype(newNode()) ptr=first();
+        if(!ptr) return;
+        while (true)
+        {
+            if(!ptr->right) break;
+            if(ptr->leftIndex.size()>maxDeep_+1) ptr->leftIndex.resize(maxDeep_+1);
+            if(ptr->rightIndex.size()>maxDeep_+1) ptr->rightIndex.resize(maxDeep_+1);
+            ptr=ptr->right;
+        }
+        if(ptr->leftIndex.size()>maxDeep_+1) ptr->leftIndex.resize(maxDeep_+1);
+        if(ptr->rightIndex.size()>maxDeep_+1) ptr->rightIndex.resize(maxDeep_+1);
     };
     void task(node<K,V>* node,OPERATE operate){
         if(operate==OPERATE::ADD){
@@ -522,6 +535,82 @@ public:
     mSkipList(mSkipList<K,V,true>&&)=delete;
     mSkipList<K,V,true>& operator=(const mSkipList<K,V,true>&)=delete;
     mSkipList<K,V,true>& operator=(mSkipList<K,V,true>&&)=delete;
+public:
+    class iterator{
+    private:
+        void* first_;
+        void* last_;
+        void* ptr_;
+    public:
+        using iterator_category = std::bidirectional_iterator_tag;
+        using value_type = KV<K,V>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = KV<K,V>*;
+        using reference = KV<K,V>&;
+        iterator()=delete;
+        explicit iterator(void* start,void* last):first_(start),last_(last),ptr_(start){};
+        explicit iterator(void* start,void* last,void* ptr):first_(start),last_(last),ptr_(ptr){};
+        reference operator*() const{
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_);
+            return ptr->data();
+        };
+        pointer operator->() const{
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_);
+            return &ptr->data();
+        };
+        iterator& operator++(){ 
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_);
+            if(ptr&&ptr->right) ptr=ptr->right; 
+            else ptr=nullptr;
+            ptr_=ptr;
+            return *this;
+        };
+        iterator operator++(int){ 
+            iterator old{first_,last_,ptr_};
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_); 
+            if(ptr&&ptr->right) ptr=ptr->right;
+            else ptr=nullptr;
+            ptr_=ptr;
+            return old; 
+        };
+        iterator& operator--(){
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_);
+            if(ptr&&ptr->left) ptr=ptr->left; 
+            else ptr=nullptr; 
+            ptr_=ptr;
+            return *this; 
+        };
+        iterator operator--(int){
+            iterator old{first_,last_,ptr_};
+            auto ptr=reinterpret_cast<decltype(newNode())>(ptr_);
+            if(ptr&&ptr->left) ptr=ptr->left; 
+            else ptr=nullptr; 
+            ptr_=ptr;
+            return old; 
+        };
+        bool operator==(const iterator& other) const{ 
+            auto a=reinterpret_cast<decltype(newNode())>(ptr_);
+            auto b=reinterpret_cast<decltype(newNode())>(other.ptr_);
+            return a->data()==b->data(); 
+        };
+        bool operator!=(const iterator& other) const{
+            auto a=reinterpret_cast<decltype(newNode())>(ptr_);
+            auto b=reinterpret_cast<decltype(newNode())>(other.ptr_);
+            return a->data()!=b->data();
+        };
+    };
+    iterator begin(){
+        return iterator{first(),last(),first()};
+    };
+    iterator end(){
+        return iterator{first(),last(),nullptr};
+    };
+    iterator rbegin(){
+        return iterator{first(),last(),last()};
+    };
+    iterator rend(){
+        return iterator{first(),last(),nullptr};
+    };
 };
 
 template<Key K,typename V>
