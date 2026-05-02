@@ -84,6 +84,7 @@ class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
+    int maxDeep=-1;//最高的层数
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftToMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
     //int deep=0;//表第deep+1层索引，没什么用可以通过first的rightIndex读到，不使用这个类变量还可以少维护一个东西
@@ -121,8 +122,6 @@ protected:
         }
     };
 protected:
-    //todo：构建原始数据和索引的连接，删除逻辑
-
     //只构建当前层的索引，pnode是新增加的节点，deep为要构建的层数（righIndex[deep]）
     bool buildAndIndex(void* pnode,int deep){
         auto node=reinterpret_cast<decltype(newNode())>(pnode);
@@ -215,13 +214,13 @@ protected:
                 ptr_left=ptr_left->leftIndex[deep];
                 ++count;
             }else if(ptr_left->leftIndex.size()<deep+1){
-                return 0;
+                return count;
             }
             if(ptr_right->rightIndex.size()==deep+1){
                 ptr_right=ptr_right->rightIndex[deep];
                 ++count;
             }else if(ptr_right->rightIndex.size()<deep+1){
-                return 0;
+                return count;
             }
             if(ptr_left->rightIndex.size()>deep+1&&ptr_right->leftIndex.size()>deep+1) break;
         }
@@ -246,13 +245,13 @@ protected:
                 ptr_left=ptr_left->left;
                 ++count;
             }else if(!ptr_left->left){
-                return 0;
+                return count;
             }
             if(ptr_right->rightIndex.size()==0){
                 ptr_right=ptr_right->right;
                 ++count;
             }else if(!ptr_right->right){
-                return 0;
+                return count;
             }
             if(ptr_left->rightIndex.size()>0&&ptr_right->leftIndex.size()>0) break;
         }
@@ -310,10 +309,12 @@ protected:
     }
     //关于索引连接，任意一层的任意两个节点，其指向两者中间方向的索引数组必然均有当前节点高度或均没有当前节点高度，不存在一边有一边没有的情况
     //在现有的节点上建立新连接，但不会处理中间节点和原始节点
-    bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所要操控的层数0开始，比如在第0层修改索引则deep为0
+    bool connectNewIndex(void* pleft,void* pright,int deep){//deep为所操控将节点的层数
         auto left=reinterpret_cast<decltype(newNode())>(pleft);//通过first确定调用着是否为子类（Derived不为nullptr_t），可以减少行数避免if constexpr
         auto right=reinterpret_cast<decltype(newNode())>(pright);
-        if(!left||!right||left->rightIndex.size()>=deep+1||right->leftIndex.size()>=deep+1) return false;
+        if(!left||!right
+            ||!(left->rightIndex.size()==deep+1&&right->leftIndex.size()==deep+1))
+            return false;
         left->rightIndex.push_back(right);
         right->leftIndex.push_back(left);
         return true;
@@ -397,6 +398,47 @@ protected:
         if(connectNode(node,new_ptr)&&connectNode(new_ptr,ptr)) return new_ptr;
         return nullptr;
     };
+protected:
+    //在最顶层构建索引，适配原始数据层
+    bool topBuildAndIndex(){
+        if(maxDeep==first()->rightIndex.size()-1) return false;
+        //first为nullptr
+        if(!first()) return true;
+        int count=0;
+        decltype(newNode()) pleft=nullptr;
+        decltype(newNode()) pright=nullptr;
+        decltype(newNode()) ptr=nullptr;
+        while (true)
+        {
+            int deep=first()->rightIndex.size()-1;
+            if(deep==-1){
+                //没有上层索引
+                count=traverseToIndexedChildNode(&pleft,&pright,first());
+                if(count<leftToMidGap()+2) break;
+                count-=1;//这里-1是去除首节点，因为是原始数据因此末尾可以建立索引
+                int fre=count/leftToMidGap();
+                for(int i=0;i<fre;++i){
+                    ptr=moveRightNode(pleft);
+                    if(!ptr) return false;
+                    if(!connectNewIndex(pleft,ptr,-1)) return false;
+                    pleft=ptr;
+                }
+            }else{
+                //至少有着一层索引
+                count=traverseToIndexedChild(&pleft,&pright,first(),deep);
+                if(count<leftToMidGap()+2) break;
+                count-=1;//这里-1是去除首节点，因为是原始数据因此末尾可以建立索引
+                int fre=count/leftToMidGap();
+                for(int i=0;i<fre;++i){
+                    ptr=moveRight(pleft);
+                    if(!ptr) return false;
+                    if(!connectNewIndex(pleft,ptr,deep)) return false;
+                    pleft=ptr;
+                }
+            }
+        }
+        return true;
+    }
 
 public:
     void task(node<K,V>* node,OPERATE operate){
