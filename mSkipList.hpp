@@ -124,8 +124,9 @@ private:
             node=move_right(left,deep);
             if(!node) return nullptr;
             if(!insert_index(left,right,node,deep)) return nullptr;
+            left=node;
         }
-        return node;
+        return node;//因为count-3所以该节点为最接近right的新的提升索引的节点，如果递归或者while控制好deep可以一直向上构建
     };
     bool insert_index(T* left,T* right,T* node,int deep){
         if(!left||!right||!node
