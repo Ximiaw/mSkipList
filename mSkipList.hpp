@@ -252,31 +252,47 @@ public:
     void delete_build_and_index(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         T* ptr=find(key);
         if(!ptr||!a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)) return;
-        int deep=ptr->leftIndex.size()-1;
-        for(int i=1;i<=deep;++i){
-            connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
-        }
-        clear_index(ptr);
+        T* left=nullptr;
+        T* right=nullptr;
+        int count=traverse_to_indexed_child(left,right,ptr,0);
+        left=ptr;
+        do{
+            int deep=ptr->leftIndex.size()-1;
+            for(int i=1;i<=deep;++i){
+                connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
+            }
+            clear_index(ptr);
+            ptr=right;
+        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，需要合并
+        ptr=left;
         //ptr后续删除后可能导致能构建新索引
         //因此这里临时摘去ptr重新构建索引
         //而任意两有着下级索引的节点一定不会挨着
         //所以这里用ptr的左边或者右边节点构建即可
-        T* left=ptr->leftIndex[deep];
-        T* right=ptr->rightIndex[deep];
+        left=ptr->leftIndex[deep];
+        right=ptr->rightIndex[deep];
         connect_node(left,right,0);
         insert_build_and_index(left);
         connect_node(left,ptr,0);
         connect_node(ptr,right,0);
     };
     void delete_build_and_index(T* ptr){
-        if(!ptr||ptr==last) return;
-        int deep=ptr->leftIndex.size()-1;
-        for(int i=1;i<=deep;++i){
-            connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
-        }
-        clear_index(ptr);
-        T* left=ptr->leftIndex[deep];
-        T* right=ptr->rightIndex[deep];
+        if(!ptr||ptr==first||ptr==last) return;
+        T* left=nullptr;
+        T* right=nullptr;
+        int count=traverse_to_indexed_child(left,right,ptr,0);
+        left=ptr;
+        do{
+            int deep=ptr->leftIndex.size()-1;
+            for(int i=1;i<=deep;++i){
+                connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
+            }
+            clear_index(ptr);
+            ptr=right;
+        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，需要合并
+        ptr=left;
+        left=ptr->leftIndex[deep];
+        right=ptr->rightIndex[deep];
         connect_node(left,right,0);
         insert_build_and_index(left);
         connect_node(left,ptr,0);
@@ -305,9 +321,45 @@ public:
     };
 };
 
-template<typename T,int keyIndex,typename... T_D>
-class mSkipList{
+//通知进行什么操作
+enum class OPERATE{
+    ADD,
+    DEL
+};
 
+//表示位置，在通知数据模型是要用到
+enum class LOCATION{
+    LEFT,
+    MIDDLE,
+    RIGHT
+};
+
+template<int keyIndex,typename... T_D>
+class mSkipList;
+
+template<int keyIndex,typename... T_D>
+class mSkipList_view{
+private:
+    V_Node<T_D...>* first=nullptr;
+    V_Node<T_D...>* last=nullptr;
+    Algorithm<V_Node<T_D...>,keyIndex,T_D...> algorithm;
+    mSkipList<keyIndex,T_D...>* base=nullptr;
+    const int key_index=keyIndex;
+    
+};
+
+template<int keyIndex,typename... T_D>
+class mSkipList{
+private:
+    Node<T_D...>* first=nullptr;
+    Node<T_D...>* last=nullptr;
+    Algorithm<Node<T_D...>,keyIndex,T_D...> algorithm;
+    std::vector<std::shared_ptr<mSkipList_view<keyIndex,T_D...>>> views;
+    const int key_index=keyIndex;
+public:
+    void insert(T_D... td){
+        
+    };
 };
 
 #endif // MSKIPLIST
