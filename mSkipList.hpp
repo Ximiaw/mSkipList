@@ -113,7 +113,19 @@ private:
     };
 private:
     T* build_and_index(T* node,int deep){
-
+        if(!node) return nullptr;
+        T* left=nullptr;
+        T* right=nullptr;
+        int count=traverse_to_indexed_child(left,right,node,deep);
+        if(count<gap+2) return nullptr;
+        count-=3;
+        int fre=count/step_size();
+        for(int i=0;i<fre;++i){
+            node=move_right(left,deep);
+            if(!node) return nullptr;
+            if(!insert_index(left,right,node,deep)) return nullptr;
+        }
+        return node;
     };
     bool insert_index(T* left,T* right,T* node,int deep){
         if(!left||!right||!node
