@@ -77,6 +77,7 @@ public:
     T* first=nullptr;//头尾添加两个哨兵节点，通过指针判断，使得算法简化为只需处理中间节点
     T* last=nullptr;
     int gap=3;//任意层两个相邻的有着下一层节点的中间夹着gap个节点需要建立索引
+    int max_deep=-1;
 private:
     int step_size(){
         return gap%2==0?gap/2:gap/2+1;
@@ -112,6 +113,37 @@ private:
         return std::get<keyIndex>(ta)==tb;
     };
 private:
+    void top_build_and_index(){
+        if(max_deep==first->rightIndex.size()-1) return;
+        int deep=first->rightIndex.size()-1;
+        int count=0;
+        int fre=0;
+        T* left=nullptr;
+        T* right=nullptr;
+        T* ptr=nullptr;
+        while (true)
+        {
+            ptr=first;
+            count=traverse_to_indexed_child(left,right,ptr,deep);
+            if(count<gap+2) break;
+            count-=1;
+            fre=count/step_size();
+            for(int i=0;i<fre;++i){
+                ptr=move_right(left,deep);
+                if(!ptr) break;
+                connect_node_push(left,ptr);
+                left=ptr;
+            }
+            ++deep;
+        }
+    };
+    void bubble_build_and_index(T* node,int deep){
+        while(true){
+            node=build_and_index(node,deep);
+            if(!node) return;
+            ++deep;
+        }
+    };
     T* build_and_index(T* node,int deep){
         if(!node) return nullptr;
         T* left=nullptr;
@@ -200,6 +232,20 @@ private:
         return true;
     };
 public:
+    void insert_build_and_index(T* node,int deep){
+        bubble_build_and_index(node,deep);
+        top_build_and_index();
+    };
+    void anew_build_and_index(){
+        T* ptr=first;
+        while (true)
+        {
+            if(ptr->rightIndex.size()==0) break;
+            clear_index(ptr);
+            ptr=ptr->rightIndex[0];
+        }
+        clear_index(ptr);
+    };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...> key>){
         int deep=first->rightIndex.size()-1;
         T* ptr=first;
