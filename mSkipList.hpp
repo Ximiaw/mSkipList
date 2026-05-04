@@ -86,10 +86,10 @@ private:
         if(a==last||b==first) return true;
         return std::get<keyIndex>(a->data())>std::get<keyIndex>(b->data());
     };
-    bool a_is_greater_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+    bool a_is_greater_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple_element_t<keyIndex,std::tuple<T_D...>& tb){
         if(a==first||b==last) return false;
         if(a==last||b==first) return true;
-        return std::get<keyIndex>(ta)>std::get<keyIndex>(tb);
+        return std::get<keyIndex>(ta)>tb;
     };
 
     bool a_is_less_than_b(T* a,T* b){
@@ -97,19 +97,19 @@ private:
         if(a==first||b==last) return true;
         return std::get<keyIndex>(a->data())<std::get<keyIndex>(b->data());
     };
-    bool a_is_less_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+    bool a_is_less_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple_element_t<keyIndex,std::tuple<T_D...>& tb){
         if(a==last||b==first) return false;
         if(a==first||b==last) return true;
-        return std::get<keyIndex>(ta)<std::get<keyIndex>(tb);
+        return std::get<keyIndex>(ta)<tb;
     };
 
     bool a_is_equal_to_b(T* a,T* b){
         if(a==last||b==first) return false;
         return std::get<keyIndex>(a->data())==std::get<keyIndex>(b->data());
     };
-    bool a_is_equal_to_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+    bool a_is_equal_to_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple_element_t<keyIndex,std::tuple<T_D...>& tb){
         if(a==last||b==first) return false;
-        return std::get<keyIndex>(ta)==std::get<keyIndex>(tb);
+        return std::get<keyIndex>(ta)==tb;
     };
 private:
     T* build_and_index(T* node,int deep){
