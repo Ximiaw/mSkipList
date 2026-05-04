@@ -252,14 +252,16 @@ public:
     void delete_build_and_index(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         T* ptr=find(key);
         if(!ptr||!a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)) return;
-        for(int i=1;i<ptr->leftIndex.size();++i){
+        int deep=ptr->leftIndex.size()-1;
+        for(int i=1;i<=deep;++i){
             connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
         }
         clear_index(ptr);
     };
     void delete_build_and_index(T* ptr){
         if(!ptr||ptr==last) return;
-        for(int i=1;i<ptr->leftIndex.size();++i){
+        int deep=ptr->leftIndex.size()-1;
+        for(int i=1;i<=deep;++i){
             connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
         }
         clear_index(ptr);
@@ -285,6 +287,11 @@ public:
             }
         }
     };
+};
+
+template<typename T,int keyIndex,typename... T_D>
+class mSkipList{
+
 };
 
 #endif // MSKIPLIST
