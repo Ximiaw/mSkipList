@@ -93,6 +93,30 @@ private:
         return std::get<keyIndex>(a->data())==std::get<keyIndex>(b->data());
     };
 private:
+    int traverse_to_indexed_child(T*& left,T*& right,T* node,int deep){
+        int count=1;
+        T* ptr_left=node;
+        T* ptr_right=node;
+        while(true){
+            if(!ptr_left||!ptr_right) return 0;
+            if(ptr_left->rightIndex.size()<=deep+1
+                &&ptr_left->leftIndex.size()==deep+1){
+                ptr_left=ptr_left->leftIndex[deep];
+                ++count;
+            }
+            if(ptr_right->leftIndex.size()<=deep+1
+                &&ptr_right->rightIndex.size()==deep+1){
+                ptr_right=ptr_right->rightIndex[deep];
+                ++count;
+            }
+            if((ptr_left->leftIndex.size()<deep+1||ptr_left->rightIndex.size()>deep+1)
+                &&(ptr_right->rightIndex.size()<deep+1||ptr_right->leftIndex.size()>deep+1))
+                break;
+        }
+        left=ptr_left;
+        right=ptr_right;
+        return count;
+    };
     T* move_right(T* node,int deep){
         for(int i=0;i<step_size();++i){
             if(!node||node->rightIndex.size()<deep+1) return nullptr;
@@ -105,7 +129,7 @@ private:
         node->leftIndex.resize(1);
         node->rightIndex.resize(1);
     };
-    void clear_index_deep(T* node,int deep){//清理deep+1外的索引
+    void clear_index_deep(T* node,int deep){//清理deep外的索引
         if(!node||deep<0||node->leftIndex.size()<=deep+1||node->rightIndex.size()<=deep+1) return;
         node->leftIndex.resize(deep+1);
         node->rightIndex.resize(deep+1);
