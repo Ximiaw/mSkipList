@@ -257,6 +257,16 @@ public:
             connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
         }
         clear_index(ptr);
+        //ptr后续删除后可能导致能构建新索引
+        //因此这里临时摘去ptr重新构建索引
+        //而任意两有着下级索引的节点一定不会挨着
+        //所以这里用ptr的左边或者右边节点构建即可
+        T* left=ptr->leftIndex[deep];
+        T* right=ptr->rightIndex[deep];
+        connect_node(left,right,0);
+        insert_build_and_index(left);
+        connect_node(left,ptr,0);
+        connect_node(ptr,right,0);
     };
     void delete_build_and_index(T* ptr){
         if(!ptr||ptr==last) return;
@@ -265,6 +275,12 @@ public:
             connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
         }
         clear_index(ptr);
+        T* left=ptr->leftIndex[deep];
+        T* right=ptr->rightIndex[deep];
+        connect_node(left,right,0);
+        insert_build_and_index(left);
+        connect_node(left,ptr,0);
+        connect_node(ptr,right,0);
     };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
