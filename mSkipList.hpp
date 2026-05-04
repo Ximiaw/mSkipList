@@ -126,7 +126,7 @@ private:
             ptr=first;
             count=traverse_to_indexed_child(left,right,ptr,deep);
             if(count<gap+2) break;
-            count-=1;
+            count-=3;//去除首尾和尾节点相邻的节点
             fre=count/step_size();
             for(int i=0;i<fre;++i){
                 ptr=move_right(left,deep);
@@ -134,6 +134,7 @@ private:
                 connect_node_push(left,ptr);
                 left=ptr;
             }
+            connect_node_push(ptr,last);//首尾节点有着所有层的索引
             ++deep;
         }
     };
@@ -232,6 +233,7 @@ private:
         return true;
     };
 public:
+    //节点的新建和连接需要在外部类实现，这里只该现管理索引，即该类不管理第0层索引
     void insert_build_and_index(T* node,int deep){
         bubble_build_and_index(node,deep);
         top_build_and_index();
@@ -240,14 +242,22 @@ public:
         T* ptr=first;
         while (true)
         {
-            if(ptr->rightIndex.size()==0) break;
+            if(ptr==last) break;
             clear_index(ptr);
             ptr=ptr->rightIndex[0];
         }
         clear_index(ptr);
         top_build_and_index();
     };
-    T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...> key>){
+    void delete_build_and_index(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
+        T* ptr=find(key);
+        if(!ptr||!a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)) return;
+        for(int i=1;i<ptr->leftIndex.size();++i){
+            connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
+        }
+        clear_index(ptr);
+    };
+    T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
         T* ptr=first;
         while(true){
