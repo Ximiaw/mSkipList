@@ -257,6 +257,13 @@ public:
         }
         clear_index(ptr);
     };
+    void delete_build_and_index(T* ptr){
+        if(!ptr||ptr==last) return;
+        for(int i=1;i<ptr->leftIndex.size();++i){
+            connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
+        }
+        clear_index(ptr);
+    };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
         T* ptr=first;
