@@ -245,6 +245,7 @@ public:
             ptr=ptr->rightIndex[0];
         }
         clear_index(ptr);
+        top_build_and_index();
     };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...> key>){
         int deep=first->rightIndex.size()-1;
