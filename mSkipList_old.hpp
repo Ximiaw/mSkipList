@@ -11,11 +11,11 @@
 #include<stdexcept>
 //#include<type_traits>
 
-template<typename K>
-concept Key = std::semiregular<K>
-    && std::totally_ordered<K>;
+template<typename T>
+concept K = std::semiregular<T>
+    && std::totally_ordered<T>;
 
-template<Key K,typename V>
+template<K K,typename V>
 struct KV{
     K key;
     V value;
@@ -29,10 +29,10 @@ struct KV{
     bool operator<(const K& other) const { return key < other; }
 };
 
-template<Key K,typename V,bool isV=false>
+template<K K,typename V,bool isV=false>
 struct node;
 
-template<Key K,typename V>
+template<K K,typename V>
 struct node<K,V,false>{
     node<K,V>* left=nullptr;
     std::vector<node<K,V>*> leftIndex;
@@ -45,7 +45,7 @@ private:
     KV<K,V> kv;
 };
 
-template<Key K,typename V>
+template<K K,typename V>
 struct node<K,V,true>{
     node<K,V,true>* left=nullptr;
     std::vector<node<K,V,true>*> leftIndex;
@@ -58,7 +58,7 @@ struct node<K,V,true>{
     node<K,V>** pnode=nullptr;//该指针只允许模型类在其独有逻辑允许使用，或视图类的条件编译使用
 };
 
-template<Key K,typename V>
+template<K K,typename V>
 using v_node=node<K,V,true>;
 
 //通知进行什么操作
@@ -74,13 +74,13 @@ enum class LOCATION{
     RIGHT
 };
 
-template<Key K,typename V,bool isV=false,typename Derived=nullptr_t>
+template<K K,typename V,bool isV=false,typename Derived=nullptr_t>
 class mSkipList;
 
 /*
 这里是视图
 */
-template<Key K,typename V,typename Derived>
+template<K K,typename V,typename Derived>
 class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
@@ -641,7 +641,7 @@ public:
     };
 };
 
-template<Key K,typename V>
+template<K K,typename V>
 using mSkipList_view=mSkipList<K,V,true,nullptr_t>;
 
 /*
@@ -649,7 +649,7 @@ using mSkipList_view=mSkipList<K,V,true,nullptr_t>;
 多视图会导致节点变动时需要长时间重整各个视图的索引，因此不推荐多视图（当然如果完成会尝试改成多线程，使得视图不多的情况下仅需等待最长的视图更新）
 允许改变间隙，但改变后直到下一次插入/删除可能改变附近的索引重建并不保证完全重建，如果需要请显示调用
 */
-template<Key K,typename V>
+template<K K,typename V>
 class mSkipList<K,V>:public mSkipList<K,V,true,mSkipList<K,V>>{
 protected:
     friend class mSkipList<K,V,true,mSkipList<K,V>>;
