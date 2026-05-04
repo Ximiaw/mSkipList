@@ -23,6 +23,9 @@ public:
     explicit Data(T_D... args):data_(std::forward<T_D>(args)...){
         init(std::index_sequence_for<T_D...>{});
     };
+    std::tuple<T_D...>& data(){ 
+        return data_;
+    };
     template<typename T>
     T& ref(int i) {
         assert(i >= 0 && i < sizeof...(T_D) && "Index out of bounds");
@@ -83,16 +86,47 @@ private:
         if(a==last||b==first) return true;
         return std::get<keyIndex>(a->data())>std::get<keyIndex>(b->data());
     };
+    bool a_is_greater_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+        if(a==first||b==last) return false;
+        if(a==last||b==first) return true;
+        return std::get<keyIndex>(ta)>std::get<keyIndex>(tb);
+    };
+
     bool a_is_less_than_b(T* a,T* b){
         if(a==last||b==first) return false;
         if(a==first||b==last) return true;
         return std::get<keyIndex>(a->data())<std::get<keyIndex>(b->data());
     };
+    bool a_is_less_than_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+        if(a==last||b==first) return false;
+        if(a==first||b==last) return true;
+        return std::get<keyIndex>(ta)<std::get<keyIndex>(tb);
+    };
+
     bool a_is_equal_to_b(T* a,T* b){
         if(a==last||b==first) return false;
         return std::get<keyIndex>(a->data())==std::get<keyIndex>(b->data());
     };
+    bool a_is_equal_to_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple<T_D...>& tb){
+        if(a==last||b==first) return false;
+        return std::get<keyIndex>(ta)==std::get<keyIndex>(tb);
+    };
 private:
+    T* build_and_index(T* node,int deep){
+
+    };
+    bool insert_index(T* left,T* right,T* node,int deep){
+        if(!left||!right||!node
+            ||left->rightIndex.size()<=deep+1||right->leftIndex.size()<=deep+1
+            ||!(left->rightIndex[deep+1]==right&&right->leftIndex[deep+1]==left)
+            ||node->leftIndex.size()!=deep+1||node->rightIndex.size()!=deep+1)
+            return false;
+        left->rightIndex[deep+1]=node;
+        node->leftIndex.push_back(left);
+        right->leftIndex[deep+1]=node;
+        node->rightIndex.push_back(right);
+        return true;
+    };
     int traverse_to_indexed_child(T*& left,T*& right,T* node,int deep){
         int count=1;
         T* ptr_left=node;
@@ -153,7 +187,27 @@ private:
         return true;
     };
 public:
-
+    T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...> key>){
+        int deep=first->rightIndex.size()-1;
+        T* ptr=first;
+        while(true){
+            if(a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key))
+                return ptr;
+            if(ptr->rightIndex.size()<deep+1){
+                if(deep==0) return ptr;
+                --deep;
+                continue;
+            }
+            if(a_is_greater_than_b(ptr->rightIndex[deep],ptr->rightIndex[deep]->data().data(),nullptr,key)){
+                if(deep==0) return ptr;
+                --deep;
+                continue;
+            }
+            if(a_is_less_than_b(ptr->rightIndex[deep],ptr->rightIndex[deep]->data().data(),nullptr,key)){
+                ptr=ptr->rightIndex[deep];
+            }
+        }
+    };
 };
 
 #endif // MSKIPLIST
