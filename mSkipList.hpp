@@ -336,7 +336,7 @@ private:
     std::allocator<T> allocator;
     using traits = std::allocator_traits<decltype(allocator)>;
     std::vector<T*> allocator_ptrs;
-    std::vector<T*> free_list;
+    std::vector<void*> free_list;
     size_t allocator_index=0;
     int allocate_size=1024;
 public:
