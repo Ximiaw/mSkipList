@@ -339,9 +339,7 @@ public:
                 --deep;
                 continue;
             }
-            if(a_is_less_than_b(ptr->rightIndex[deep],ptr->rightIndex[deep]->data().data(),nullptr,key)){
-                ptr=ptr->rightIndex[deep];
-            }
+            ptr=ptr->rightIndex[deep];
         }
     };
 };
