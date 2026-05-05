@@ -134,12 +134,10 @@ private:
         T* ptr=first;
         while (ptr!=last)
         {
-            ptr->leftIndex.resize(deep+1);
-            ptr->rightIndex.resize(deep+1);
+            clear_index_deep(ptr,deep);
             ptr=ptr->rightIndex[deep];
         }
-        ptr->leftIndex.resize(deep+1);
-        ptr->rightIndex.resize(deep+1);
+        clear_index_deep(ptr,deep);
     };
     void top_build_and_index(){
         if(max_deep==first->rightIndex.size()-1) return;
