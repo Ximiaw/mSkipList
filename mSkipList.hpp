@@ -493,9 +493,10 @@ public:
     void erase(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
         auto node=algorithm.find(key);
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
-            algorithm.delete_build_and_index(key);
+            algorithm.delete_build_and_index(node);
             connect_node(node->leftIndex[0],node->rightIndex[0]);
             allocator.del_node(node);
+            return;
         }
         throw std::runtime_error("key not found.");
     };
