@@ -34,11 +34,6 @@ public:
         assert(ptr != nullptr && "Null pointer");
         return *ptr; 
     };
-    template<size_t i>
-    auto& get(){
-        static_assert(i < sizeof...(T_D), "Index out of range");
-        return std::get<i>(data_);
-    };
 };
 
 template<typename T>
