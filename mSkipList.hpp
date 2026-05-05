@@ -451,6 +451,15 @@ private:
     Allocator<Node<T_D...>,T_D...> allocator;
 
 
+    bool connect_node(T* left,T* right){
+        if(!left||!right
+            ||left->rightIndex.size()<1
+            ||right->leftIndex.size()<1)
+            return false;
+        left->rightIndex[0]=right;
+        right->leftIndex[0]=left;
+        return true;
+    };
     bool insert_right(Node<T_D...>* left,Node<T_D...>* right,Node<T_D...>* node){
         if(!left||!right||!node
             ||!(left->rightIndex[0]==right&&right->leftIndex[0]==left)
@@ -478,6 +487,15 @@ public:
         Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
             return std::get<keyIndex>(node->data().data());
+        }
+        throw std::runtime_error("key not found.");
+    };
+    void erase(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
+        auto node=algorithm.find(key);
+        if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
+            algorithm.delete_build_and_index(key);
+            connect_node(node->leftIndex[0],node->rightIndex[0]);
+            allocator.del_node(node);
         }
         throw std::runtime_error("key not found.");
     };
@@ -517,6 +535,10 @@ public:
         algorithm.gap=gap;
         algorithm.max_deep=max_deep;
     };
+
+    // Node<T_D...>* fir(){
+    //     return first;
+    // };
 };
 
 #endif // MSKIPLIST
