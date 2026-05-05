@@ -494,7 +494,7 @@ public:
         algorithm.gap=gap;
     };
 public:
-    mSkipList(int node_count=1024,T_D... td):allocator(node_count){//td可以是任意数据，这里只是填入便于构造哨兵
+    mSkipList(T_D... td):allocator(1024){//td可以是任意数据，这里只是填入便于构造哨兵
         first=allocator.get_node(td);
         algorithm.first=first;
         allocator.first=first;
@@ -502,6 +502,17 @@ public:
         algorithm.last=last;
         first->rightIndex.push_back(last);
         last->leftIndex.push_back(first);
+    };
+    mSkipList(int node_count=1024,int gap=3,int max_deep=-1,T_D... td):allocator(node_count){//td可以是任意数据，这里只是填入便于构造哨兵
+        first=allocator.get_node(td);
+        algorithm.first=first;
+        allocator.first=first;
+        last=allocator.get_node(td);
+        algorithm.last=last;
+        first->rightIndex.push_back(last);
+        last->leftIndex.push_back(first);
+        algorithm.gap=gap;
+        algorithm.max_deep=max_deep;
     };
 };
 
