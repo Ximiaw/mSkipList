@@ -269,8 +269,8 @@ public:
         //因此这里临时摘去ptr重新构建索引
         //而任意两有着下级索引的节点一定不会挨着
         //所以这里用ptr的左边或者右边节点构建即可
-        left=ptr->leftIndex[deep];
-        right=ptr->rightIndex[deep];
+        left=ptr->leftIndex[0];
+        right=ptr->rightIndex[0];
         connect_node(left,right,0);
         insert_build_and_index(left);
         connect_node(left,ptr,0);
@@ -289,10 +289,10 @@ public:
             }
             clear_index(ptr);
             ptr=right;
-        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，需要合并
+        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，而ptr将要删除，这两个节点可能相邻，清除其中一边
         ptr=left;
-        left=ptr->leftIndex[deep];
-        right=ptr->rightIndex[deep];
+        left=ptr->leftIndex[0];
+        right=ptr->rightIndex[0];
         connect_node(left,right,0);
         insert_build_and_index(left);
         connect_node(left,ptr,0);
@@ -318,6 +318,51 @@ public:
                 ptr=ptr->rightIndex[deep];
             }
         }
+    };
+};
+
+template<typename T,typename... T_D> requires NodeBase<T,T_D...>
+class Allocator{
+private:
+    std::allocator<T> allocator;
+    using traits = std::allocator_traits<decltype(allocator)>;
+    std::vector<T*> allocator_ptrs;
+    std::vector<T*> free_list;
+    size_t allocator_index=0;
+    int allocate_size=1024;
+    T* first=nullptr;
+public:
+    Allocator(int allocate_size,T* first):allocate_size(allocate_size),first(first){};
+    ~Allocator(){
+        T* ptr=first;//first落后，ptr指向前方
+        while(ptr->rightIndex.size()>0){
+            ptr=ptr->rightIndex[0];
+            traits::destroy(allocator,first);
+            first=ptr;
+        }
+        traits::destroy(allocator,ptr);
+        for(int i=0;i<allocator_ptrs.size();++i){
+            allocator.deallocate(allocator_ptrs[i],allocate_size);
+        }
+        allocator_ptrs.clear();
+        free_list.clear();
+    };
+    void del_node(T* node){
+        free_list.push_back(node);
+        traits::destroy(allocator,node);
+    };
+    T* get_node(T_D... td){
+        if(free_list.size()>0){
+            T* node=free_list.back();
+            free_list.pop_back();
+            return traits::construct(allocator,node,td);
+        }
+        ++allocator_index;
+        if(allocate_size<allocator_index){
+            allocator_index=1;
+            allocator_ptrs.push_back(allocator.allocate(allocate_size));
+        }
+        return traits::construct(allocator,allocator_ptrs.back()[allocator_index-1],td);
     };
 };
 
@@ -353,13 +398,21 @@ class mSkipList{
 private:
     Node<T_D...>* first=nullptr;
     Node<T_D...>* last=nullptr;
+
     Algorithm<Node<T_D...>,keyIndex,T_D...> algorithm;
     std::vector<std::shared_ptr<mSkipList_view<keyIndex,T_D...>>> views;
     const int key_index=keyIndex;
+
+    Allocator<Node<T_D...>,T_D...> allocator;
 public:
     void insert(T_D... td){
         
     };
+public:
+    mSkipList(int node_count=1024){
+        
+    };
+private:
 };
 
 #endif // MSKIPLIST
