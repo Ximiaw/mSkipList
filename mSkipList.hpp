@@ -517,11 +517,6 @@ public:
         algorithm.gap=gap;
         algorithm.max_deep=max_deep;
     };
-
-
-    Node<T_D...>* fir(){
-        return first;
-    };
 };
 
 #endif // MSKIPLIST
