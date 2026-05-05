@@ -76,7 +76,7 @@ public:
     T* first=nullptr;//头尾添加两个哨兵节点，通过指针判断，使得算法简化为只需处理中间节点
     T* last=nullptr;
     int max_deep=-1;
-    int gap=3;//任意层两个相邻的有着下一层节点的中间夹着gap个节点需要建立索引
+    int gap=4;//任意层两个相邻的有着下一层节点的中间夹着gap个节点需要建立索引
     int step_size(){
         return gap%2==0?gap/2:gap/2+1;
     };
@@ -497,7 +497,7 @@ public:
         algorithm.gap=gap;
     };
 public:
-    mSkipList(T_D... td):allocator(1024){//td可以是任意数据，这里只是填入便于构造哨兵
+    mSkipList(T_D... td):allocator(4096){//td可以是任意数据，这里只是填入便于构造哨兵
         first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
@@ -506,7 +506,7 @@ public:
         first->rightIndex.push_back(last);
         last->leftIndex.push_back(first);
     };
-    mSkipList(int node_count=1024,int gap=3,int max_deep=-1,T_D... td):allocator(node_count){//td可以是任意数据，这里只是填入便于构造哨兵
+    mSkipList(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td):allocator(allocate_size){//td可以是任意数据，这里只是填入便于构造哨兵
         first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
