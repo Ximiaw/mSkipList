@@ -115,6 +115,32 @@ public:
         return std::get<keyIndex>(ta)==tb;
     };
 private:
+    void sink_clear_index(){
+        int deep=first->rightIndex.size()-1;
+        T* ptr=first;
+        T* left=nullptr;
+        T* right=nullptr;
+        int old_count=traverse_to_indexed_child(left,right,ptr,deep);
+        int new_count=0;
+        --deep;
+        while(true){
+            new_count=traverse_to_indexed_child(left,right,ptr,deep);
+            if(new_count>gap+2) break;
+            --deep;
+        }
+        clear_index_deep(deep);
+    };
+    void clear_index_deep(int deep){
+        T* ptr=first;
+        while (ptr!=last)
+        {
+            ptr->leftIndex.resize(deep+1);
+            ptr->rightIndex.resize(deep+1);
+            ptr=ptr->rightIndex[deep];
+        }
+        ptr->leftIndex.resize(deep+1);
+        ptr->rightIndex.resize(deep+1);
+    };
     void top_build_and_index(){
         if(max_deep==first->rightIndex.size()-1) return;
         int deep=first->rightIndex.size()-1;
@@ -212,7 +238,7 @@ private:
         node->rightIndex.resize(1);
     };
     void clear_index_deep(T* node,int deep){//清理deep外的索引
-        if(!node||deep<0||node->leftIndex.size()<=deep+1||node->rightIndex.size()<=deep+1) return;
+        if(!node||deep<1||node->leftIndex.size()<=deep+1||node->rightIndex.size()<=deep+1) return;
         node->leftIndex.resize(deep+1);
         node->rightIndex.resize(deep+1);
     };
@@ -277,6 +303,7 @@ public:
         insert_build_and_index(left);
         connect_node(left,ptr,0);
         connect_node(ptr,right,0);
+        sink_clear_index();
     };
     void delete_build_and_index(T* ptr){
         if(!ptr||ptr==first||ptr==last) return;
@@ -299,6 +326,7 @@ public:
         insert_build_and_index(left);
         connect_node(left,ptr,0);
         connect_node(ptr,right,0);
+        sink_clear_index();
     };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
@@ -452,11 +480,14 @@ public:
         }
         throw std::runtime_error("key not found.");
     };
+    int get_deep(){
+        return first->rightIndex.size();
+    };
     int max_deep() const{
-        return algorithm.max_deep;
+        return algorithm.max_deep+1;
     };
     void set_max_deep(int max_deep){
-        algorithm.max_deep=max_deep;
+        algorithm.max_deep=max_deep-1;
     };
     int gap() const{
         return algorithm.gap;
