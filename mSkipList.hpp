@@ -115,12 +115,12 @@ private:
     void sink_clear_index(){
         int deep=first->rightIndex.size()-1;
         T* ptr=first;
-        int old_count=right_to_indexed_child(ptr,deep);
+        int old_count=0;
         int new_count=0;
-        --deep;
         while(true){
             new_count=right_to_indexed_child(ptr,deep);
-            if(new_count>gap+2) break;
+            if(new_count>=gap+2&&old_count<gap+2) break;
+            old_count=new_count;
             --deep;
         }
         clear_index_deep(deep);
@@ -242,14 +242,14 @@ private:
         return node;
     };
     void clear_index(T* node){//清理0外的索引
-        if(!node||node->leftIndex.size()<=1||node->rightIndex.size()<=1) return;
-        node->leftIndex.resize(1);
-        node->rightIndex.resize(1);
+        clear_index_deep(node,0);
     };
     void clear_index_deep(T* node,int deep){//清理deep外的索引
-        if(!node||deep<1||node->leftIndex.size()<=deep+1||node->rightIndex.size()<=deep+1) return;
-        node->leftIndex.resize(deep+1);
-        node->rightIndex.resize(deep+1);
+        if(!node||deep<0) return;
+        if(node!=first)
+            node->leftIndex.resize(deep+1);
+        if(node!=last)
+            node->rightIndex.resize(deep+1);
     };
     //不保证中间节点如何
     bool connect_node(T* left,T* right,int deep){
@@ -306,7 +306,7 @@ public:
             break;
         };
         insert_build_and_index(right,0);
-        sink_clear_index();//有bug
+        sink_clear_index();
     };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
