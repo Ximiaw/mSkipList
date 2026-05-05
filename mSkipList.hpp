@@ -6,6 +6,7 @@
 #include<memory>
 #include<concepts>
 #include<tuple>
+#include<cassert>
 
 template<typename T>
 concept Key=std::semiregular<T>&&std::totally_ordered<T>;//视图类里面用，判断所选key是否满足需求
@@ -15,8 +16,8 @@ class Data{
 private:
     std::tuple<T_D...> data_;
     void* ptrs_[sizeof...(T_D)];
-    template<int... Is>
-    void init(std::index_sequence<Is...>){
+    template<std::size_t... Is>
+    constexpr void init(std::index_sequence<Is...>){
         ((ptrs_[Is] = static_cast<void*>(&std::get<Is>(data_))), ...);
     };
 public:
@@ -68,12 +69,13 @@ struct V_Node{
 template<typename T,typename... T_D>
 concept NodeBase=requires(T* node)
 {
-    {node->leftIndex}->std::same_as<nodeIndexList<T>>;
-    {node->rightIndex}->std::same_as<nodeIndexList<T>>;
+    {node->leftIndex}->std::same_as<nodeIndexList<T>&>;
+    {node->rightIndex}->std::same_as<nodeIndexList<T>&>;
     {node->data()}->std::same_as<Data<T_D...>&>;
 };
 
-template<typename T,int keyIndex,typename... T_D> requires NodeBase<T,T_D...>
+template<typename T,int keyIndex,typename... T_D>
+    requires NodeBase<T,T_D...>
 class Algorithm{
 public:
     T* first=nullptr;//头尾添加两个哨兵节点，通过指针判断，使得算法简化为只需处理中间节点
@@ -349,7 +351,8 @@ public:
     };
 };
 
-template<typename T,typename... T_D> requires NodeBase<T,T_D...>
+template<typename T,typename... T_D> 
+    requires NodeBase<T,T_D...>
 class Allocator{
 private:
     std::allocator<T> allocator;
@@ -361,7 +364,10 @@ private:
 public:
     T* first=nullptr;
 public:
-    Allocator(int allocate_size):allocate_size(allocate_size){};
+    Allocator(int allocate_size):allocate_size(allocate_size){
+            allocator_index=0;
+            allocator_ptrs.push_back(allocator.allocate(allocate_size));
+    };
     ~Allocator(){
         T* ptr=first;//first落后，ptr指向前方
         while(ptr->rightIndex.size()>0){
@@ -384,27 +390,31 @@ public:
         if(free_list.size()>0){
             T* node=free_list.back();
             free_list.pop_back();
-            return traits::construct(allocator,node,td);
+            traits::construct(allocator,node,td...);
+            return node;
         }
         ++allocator_index;
         if(allocate_size<allocator_index){
             allocator_index=1;
             allocator_ptrs.push_back(allocator.allocate(allocate_size));
         }
-        return traits::construct(allocator,allocator_ptrs.back()[allocator_index-1],td);
+        traits::construct(allocator,allocator_ptrs.back()+allocator_index-1,td...);
+        return allocator_ptrs.back()+allocator_index-1;
     };
     T* get_v_node(Node<T_D...>* node){
         if(free_list.size()>0){
             T* v_node=free_list.back();
             free_list.pop_back();
-            return traits::construct(allocator,v_node,node);
+            traits::construct(allocator,v_node,node);
+            return v_node;
         }
         ++allocator_index;
         if(allocate_size<allocator_index){
             allocator_index=1;
             allocator_ptrs.push_back(allocator.allocate(allocate_size));
         }
-        return traits::construct(allocator,allocator_ptrs.back()[allocator_index-1],node);
+        traits::construct(allocator,allocator_ptrs.back()+allocator_index-1,node);
+        return allocator_ptrs.back()+allocator_index-1;
     };
 };
 
@@ -461,20 +471,20 @@ private:
     };
 public:
     void insert(T_D... td){
-        auto key=std::get<keyIndex>(td);
+        auto key=std::get<keyIndex>(std::make_tuple(td...));
         Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
-            node->data()=td;
+            node->data().data()=std::move(std::make_tuple(td...));
             return;
         }
-        insert_right(node,node->rightIndex[0],allocator.get_node(td));
+        insert_right(node,node->rightIndex[0],allocator.get_node(td...));
         algorithm.insert_build_and_index(node->rightIndex[0],0);
     };
     template<typename Type>
     const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
         Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
-            return std::get<keyIndex>(node->data());
+            return std::get<keyIndex>(node->data().data());
         }
         throw std::runtime_error("key not found.");
     };
@@ -495,24 +505,29 @@ public:
     };
 public:
     mSkipList(T_D... td):allocator(1024){//td可以是任意数据，这里只是填入便于构造哨兵
-        first=allocator.get_node(td);
+        first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
-        last=allocator.get_node(td);
+        last=allocator.get_node(td...);
         algorithm.last=last;
         first->rightIndex.push_back(last);
         last->leftIndex.push_back(first);
     };
     mSkipList(int node_count=1024,int gap=3,int max_deep=-1,T_D... td):allocator(node_count){//td可以是任意数据，这里只是填入便于构造哨兵
-        first=allocator.get_node(td);
+        first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
-        last=allocator.get_node(td);
+        last=allocator.get_node(td...);
         algorithm.last=last;
         first->rightIndex.push_back(last);
         last->leftIndex.push_back(first);
         algorithm.gap=gap;
         algorithm.max_deep=max_deep;
+    };
+
+
+    Node<T_D...>* fir(){
+        return first;
     };
 };
 
