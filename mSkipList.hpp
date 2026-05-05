@@ -53,6 +53,7 @@ struct Node{
     nodeIndexList<V_Node<T_D...>> v_node;//重建索引时，获取视图，减少一次查询
     Data<T_D...> data_;
     Data<T_D...>& data(){ return data_; };//禁止修改当前主键，如果改到其他主键则通知视图删除节点，然后重新插入
+    Node(T_D... args):data_(std::forward<T_D>(args)...){};
 };
 
 template<typename... T_D>
@@ -61,6 +62,7 @@ struct V_Node{
     nodeIndexList<V_Node<T_D...>> rightIndex;
     Node<T_D...>* node=nullptr;
     Data<T_D...>& data(){ return node->data(); };//可能报错，但是如果对应数据节点不存在则该视图不应该存在
+    V_Node(Node<T_D...>* node):node(node){};
 };
 
 template<typename T,typename... T_D>
@@ -76,12 +78,12 @@ class Algorithm{
 public:
     T* first=nullptr;//头尾添加两个哨兵节点，通过指针判断，使得算法简化为只需处理中间节点
     T* last=nullptr;
-    int gap=3;//任意层两个相邻的有着下一层节点的中间夹着gap个节点需要建立索引
     int max_deep=-1;
-private:
+    int gap=3;//任意层两个相邻的有着下一层节点的中间夹着gap个节点需要建立索引
     int step_size(){
         return gap%2==0?gap/2:gap/2+1;
     };
+public:
     bool a_is_greater_than_b(T* a,T* b){
         if(a==first||b==last) return false;
         if(a==last||b==first) return true;
@@ -330,9 +332,10 @@ private:
     std::vector<T*> free_list;
     size_t allocator_index=0;
     int allocate_size=1024;
+public:
     T* first=nullptr;
 public:
-    Allocator(int allocate_size,T* first):allocate_size(allocate_size),first(first){};
+    Allocator(int allocate_size):allocate_size(allocate_size){};
     ~Allocator(){
         T* ptr=first;//first落后，ptr指向前方
         while(ptr->rightIndex.size()>0){
@@ -363,6 +366,19 @@ public:
             allocator_ptrs.push_back(allocator.allocate(allocate_size));
         }
         return traits::construct(allocator,allocator_ptrs.back()[allocator_index-1],td);
+    };
+    T* get_v_node(Node<T_D...>* node){
+        if(free_list.size()>0){
+            T* v_node=free_list.back();
+            free_list.pop_back();
+            return traits::construct(allocator,v_node,node);
+        }
+        ++allocator_index;
+        if(allocate_size<allocator_index){
+            allocator_index=1;
+            allocator_ptrs.push_back(allocator.allocate(allocate_size));
+        }
+        return traits::construct(allocator,allocator_ptrs.back()[allocator_index-1],node);
     };
 };
 
@@ -396,7 +412,7 @@ private:
 template<int keyIndex,typename... T_D>
 class mSkipList{
 private:
-    Node<T_D...>* first=nullptr;
+    Node<T_D...>* first=nullptr;//不需要手动管理，分配器会管理
     Node<T_D...>* last=nullptr;
 
     Algorithm<Node<T_D...>,keyIndex,T_D...> algorithm;
@@ -404,15 +420,60 @@ private:
     const int key_index=keyIndex;
 
     Allocator<Node<T_D...>,T_D...> allocator;
+
+
+    bool insert_right(Node<T_D...>* left,Node<T_D...>* right,Node<T_D...>* node){
+        if(!left||!right||!node
+            ||!(left->rightIndex[0]==right&&right->leftIndex[0]==left)
+            ||node->leftIndex.size()!=0||node->rightIndex.size()!=0)
+            return false;
+        left->rightIndex[0]=node;
+        node->leftIndex.push_back(left);
+        right->leftIndex[0]=node;
+        node->rightIndex.push_back(right);
+        return true;
+    };
 public:
     void insert(T_D... td){
-        
+        auto key=std::get<keyIndex>(td);
+        Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
+        if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
+            node->data()=td;
+            return;
+        }
+        insert_right(node,node->rightIndex[0],allocator.get_node(td));
+        algorithm.insert_build_and_index(node->rightIndex[0],0);
+    };
+    template<typename Type>
+    const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
+        Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
+        if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
+            return std::get<keyIndex>(node->data());
+        }
+        throw std::runtime_error("key not found.");
+    };
+    int max_deep() const{
+        return algorithm.max_deep;
+    };
+    void set_max_deep(int max_deep){
+        algorithm.max_deep=max_deep;
+    };
+    int gap() const{
+        return algorithm.gap;
+    };
+    void set_gap(int gap){
+        algorithm.gap=gap;
     };
 public:
-    mSkipList(int node_count=1024){
-        
+    mSkipList(int node_count=1024,T_D... td):allocator(node_count){//td可以是任意数据，这里只是填入便于构造哨兵
+        first=allocator.get_node(td);
+        algorithm.first=first;
+        allocator.first=first;
+        last=allocator.get_node(td);
+        algorithm.last=last;
+        first->rightIndex.push_back(last);
+        last->leftIndex.push_back(first);
     };
-private:
 };
 
 #endif // MSKIPLIST
