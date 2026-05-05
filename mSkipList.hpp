@@ -115,13 +115,11 @@ private:
     void sink_clear_index(){
         int deep=first->rightIndex.size()-1;
         T* ptr=first;
-        T* left=nullptr;
-        T* right=nullptr;
-        int old_count=traverse_to_indexed_child(left,right,ptr,deep);
+        int old_count=right_to_indexed_child(ptr,deep);
         int new_count=0;
         --deep;
         while(true){
-            new_count=traverse_to_indexed_child(left,right,ptr,deep);
+            new_count=right_to_indexed_child(ptr,deep);
             if(new_count>gap+2) break;
             --deep;
         }
@@ -196,25 +194,41 @@ private:
         node->rightIndex.push_back(right);
         return true;
     };
+    int right_to_indexed_child(T* node,int deep){
+        if(!node) return 0;
+        int count=1;
+        while (true)
+        {
+            if(node->rightIndex.size()<deep+1) return count;
+            node=node->rightIndex[deep];
+            ++count;
+        }
+        return count;
+    };
     int traverse_to_indexed_child(T*& left,T*& right,T* node,int deep){
         int count=1;
         T* ptr_left=node;
         T* ptr_right=node;
+        bool moved=false;
         while(true){
+            moved=false;
             if(!ptr_left||!ptr_right) return 0;
             if(ptr_left->rightIndex.size()<=deep+1
                 &&ptr_left->leftIndex.size()==deep+1){
                 ptr_left=ptr_left->leftIndex[deep];
                 ++count;
+                moved=true;
             }
             if(ptr_right->leftIndex.size()<=deep+1
                 &&ptr_right->rightIndex.size()==deep+1){
                 ptr_right=ptr_right->rightIndex[deep];
                 ++count;
+                moved=true;
             }
             if((ptr_left->leftIndex.size()<deep+1||ptr_left->rightIndex.size()>deep+1)
                 &&(ptr_right->rightIndex.size()<deep+1||ptr_right->leftIndex.size()>deep+1))
                 break;
+            if(!moved) break;
         }
         left=ptr_left;
         right=ptr_right;
@@ -239,7 +253,7 @@ private:
     };
     //不保证中间节点如何
     bool connect_node(T* left,T* right,int deep){
-        if(!left||!right
+        if(!left||!right||left==last||right==first||left==right
             ||left->rightIndex.size()<deep+1
             ||right->leftIndex.size()<deep+1)
             return false;
@@ -248,7 +262,7 @@ private:
         return true;
     };
     bool connect_node_push(T* left,T* right){
-        if(!left||!right
+        if(!left||!right||left==last||right==first||left==right
             ||!(left->rightIndex.size()==right->leftIndex.size()))
             return false;
         left->rightIndex.push_back(right);
@@ -256,7 +270,6 @@ private:
         return true;
     };
 public:
-    //节点的新建和连接需要在外部类实现，这里只该现管理索引，即该类不管理第0层索引
     void insert_build_and_index(T* node,int deep){
         bubble_build_and_index(node,deep);
         top_build_and_index();
@@ -272,56 +285,28 @@ public:
         clear_index(ptr);
         top_build_and_index();
     };
-    void delete_build_and_index(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
-        T* ptr=find(key);
-        if(!ptr||!a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)) return;
-        T* left=nullptr;
-        T* right=nullptr;
-        int count=traverse_to_indexed_child(left,right,ptr,0);
-        left=ptr;
-        do{
-            int deep=ptr->leftIndex.size()-1;
-            for(int i=1;i<=deep;++i){
-                connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
-            }
-            clear_index(ptr);
-            ptr=right;
-        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，需要合并
-        ptr=left;
-        //ptr后续删除后可能导致能构建新索引
-        //因此这里临时摘去ptr重新构建索引
-        //而任意两有着下级索引的节点一定不会挨着
-        //所以这里用ptr的左边或者右边节点构建即可
-        left=ptr->leftIndex[0];
-        right=ptr->rightIndex[0];
-        connect_node(left,right,0);
-        insert_build_and_index(left);
-        connect_node(left,ptr,0);
-        connect_node(ptr,right,0);
-        sink_clear_index();
-    };
-    void delete_build_and_index(T* ptr){
+    void delete_build_and_index(T* ptr){//会清除底层，如果多视图则主视图要最后调用
         if(!ptr||ptr==first||ptr==last) return;
-        T* left=nullptr;
-        T* right=nullptr;
-        int count=traverse_to_indexed_child(left,right,ptr,0);
-        left=ptr;
-        do{
+        T* left=ptr->leftIndex[0];
+        T* right=ptr->rightIndex[0];
+        int c_i_d=-1;
+        while (true)
+        {
             int deep=ptr->leftIndex.size()-1;
-            for(int i=1;i<=deep;++i){
+            for(int i=c_i_d+1;i<=deep;++i){
                 connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
             }
-            clear_index(ptr);
-            ptr=right;
-        }while(count==3&&right!=last&&ptr!=right);//如果等于3意味着ptr的左右两边有着下一层索引，而ptr将要删除，这两个节点可能相邻，清除其中一边
-        ptr=left;
-        left=ptr->leftIndex[0];
-        right=ptr->rightIndex[0];
-        connect_node(left,right,0);
-        insert_build_and_index(left);
-        connect_node(left,ptr,0);
-        connect_node(ptr,right,0);
-        sink_clear_index();
+            clear_index_deep(ptr,c_i_d);
+            if(right->leftIndex.size()>1&&left->rightIndex.size()>1&&right!=last){
+                if(ptr==right) break;
+                ptr=right;
+                c_i_d=0;
+                continue;
+            }
+            break;
+        };
+        insert_build_and_index(right,0);
+        sink_clear_index();//有bug
     };
     T* find(std::tuple_element_t<keyIndex,std::tuple<T_D...>>& key){
         int deep=first->rightIndex.size()-1;
@@ -451,10 +436,8 @@ private:
     Allocator<Node<T_D...>,T_D...> allocator;
 
 
-    bool connect_node(T* left,T* right){
-        if(!left||!right
-            ||left->rightIndex.size()<1
-            ||right->leftIndex.size()<1)
+    bool connect_node(Node<T_D...>* left,Node<T_D...>* right){
+        if(!left||!right||left==right)
             return false;
         left->rightIndex[0]=right;
         right->leftIndex[0]=left;
@@ -492,9 +475,9 @@ public:
     };
     void erase(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
         auto node=algorithm.find(key);
+        if(node==first||node==last) return;
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
             algorithm.delete_build_and_index(node);
-            connect_node(node->leftIndex[0],node->rightIndex[0]);
             allocator.del_node(node);
             return;
         }
@@ -537,9 +520,9 @@ public:
         algorithm.max_deep=max_deep;
     };
 
-    // Node<T_D...>* fir(){
-    //     return first;
-    // };
+    Node<T_D...>* fir(){//test
+        return first;
+    };
 };
 
 #endif // MSKIPLIST
