@@ -9,6 +9,9 @@
 #include<cassert>
 
 namespace msl{
+    template<typename T>
+    concept Key=std::semiregular<T>&&std::totally_ordered<T>;//视图类里面用，判断所选key是否满足需求
+
     template<typename... T_D>
     class Data{
     private:
@@ -68,7 +71,7 @@ namespace msl{
     };
 
     template<typename T,int keyIndex,typename... T_D>
-        requires NodeBase<T,T_D...>
+        requires NodeBase<T,T_D...>&&Key<std::tuple_element_t<keyIndex,std::tuple<T_D...>>>
     class Algorithm{
     public:
         T* first=nullptr;//头尾添加两个哨兵节点，通过指针判断，使得算法简化为只需处理中间节点
