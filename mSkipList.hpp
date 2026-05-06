@@ -9,9 +9,6 @@
 #include<cassert>
 
 namespace msl{
-    template<typename T>
-    concept Key=std::semiregular<T>&&std::totally_ordered<T>;//视图类里面用，判断所选key是否满足需求
-
     template<typename... T_D>
     class Data{
     private:
