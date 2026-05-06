@@ -168,5 +168,5 @@ g++ -std=c++20 mSkipList.h test.cpp -O3 -o test && ./test
 
 ## 许可证
 
-MIT License
+MIT License  
 Copyright (c) 2026 Ximiaw
