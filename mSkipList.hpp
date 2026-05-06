@@ -95,11 +95,11 @@ namespace msl{
         };
 
         bool a_is_equal_to_b(T* a,T* b){
-            if(a==last||b==first) return false;
+            if(a==last||a==first||b==last||b==first) return false;
             return std::get<keyIndex>(a->data())==std::get<keyIndex>(b->data());
         };
         bool a_is_equal_to_b(T* a,std::tuple<T_D...>& ta,T* b,std::tuple_element_t<keyIndex,std::tuple<T_D...>>& tb){
-            if(a==last||b==first) return false;
+            if(a==last||a==first||b==last||b==first) return false;
             return std::get<keyIndex>(ta)==tb;
         };
     private:

@@ -3,6 +3,7 @@
 #include <string>
 #include <cassert>
 #include <vector>
+#include <set>
 #include <algorithm>
 #include <random>
 #include <stdexcept>
@@ -195,19 +196,25 @@ int main() {
         mSkipList<0, int, double> list(0, 0.0);
 
         const int N = 3000;
-        std::vector<int> keys;
-        keys.reserve(N);
+        std::set<int> key_set;
         std::mt19937 rng(12345);
         std::uniform_int_distribution<int> dist(1, 50000);
 
-        // 随机插入
-        for (int i = 0; i < N; ++i) {
-            int k = dist(rng);
-            keys.push_back(k);
+        // 生成 N 个不重复的随机 key
+        while (key_set.size() < static_cast<size_t>(N)) {
+            key_set.insert(dist(rng));
+        }
+        std::vector<int> keys(key_set.begin(), key_set.end());
+        std::shuffle(keys.begin(), keys.end(), rng);
+
+        // 插入阶段
+        for (int k : keys) {
             list.insert(k, static_cast<double>(k) * 1.5);
         }
 
-        // 验证所有 key 至少最后一次插入的值存在且正确
+        check(list.size() == N, "插入 N 个唯一 key 后 size 为 N");
+
+        // 验证所有 key 存在且数据正确
         bool all_found = true;
         bool all_correct = true;
         for (int k : keys) {
@@ -222,15 +229,14 @@ int main() {
         }
         check(all_found, "所有插入的 key 均可查询");
         check(all_correct, "所有 key 对应的数据值正确");
-        check(list.size() <= N, "size 不超过插入次数（重复 key 会覆盖）");
 
-        // 随机删除一半
-        std::shuffle(keys.begin(), keys.end(), rng);
+        // 随机删除前半部分（每个 key 只删一次，绝无重复）
+        std::shuffle(keys.begin(), keys.end(), rng);  // 再次打乱，模拟随机删除
         for (int i = 0; i < N / 2; ++i) {
             list.erase(keys[i]);
         }
 
-        // 验证剩余部分仍可查
+        // 验证后半部分 key 仍然全部存在
         bool remaining_ok = true;
         for (int i = N / 2; i < N; ++i) {
             if (!list.contain(keys[i])) {
@@ -239,6 +245,7 @@ int main() {
             }
         }
         check(remaining_ok, "批量删除后剩余节点查询正常");
+        check(list.size() == N / 2, "删除一半后 size 为 N/2");
     }
 
     // ============================================================

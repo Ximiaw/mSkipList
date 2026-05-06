@@ -9,3 +9,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(mSkipList
     "test.cpp"
 )
+add_executable(mSkipList
+    "test1.cpp"
+)
