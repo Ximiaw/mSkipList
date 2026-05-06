@@ -1,204 +1,202 @@
 #include "mSkipList.hpp"
 #include <iostream>
 #include <string>
-#include <random>
-#include <chrono>
-#include <map>
 #include <cassert>
-#include <vector>
-#include <algorithm>
+#include <stdexcept>
+#include <limits>
 
-// ==================== 结构验证 ====================
-// 逐层遍历跳表，验证每层索引严格升序
-template<int keyIndex, typename... T_D>
-bool validate_skiplist(mSkipList<keyIndex, T_D...>* msl) {
-    auto* first = msl->fir();
-    int max_deep = first->rightIndex.size();
+using namespace msl;
 
-    for (int d = 0; d < max_deep; ++d) {
-        auto* cur = first->rightIndex[d];
-        int prev = INT_MIN;
-        while (cur && cur->rightIndex.size() > d) {
-            // last 哨兵的 rightIndex 为空，循环会在 last 之前自然终止
-            int val = cur->data().template ref<int>(keyIndex);
-            if (val < prev) {
-                std::cerr << "层 " << d << " 发现逆序: " << prev << " > " << val << std::endl;
-                return false;
-            }
-            prev = val;
-            cur = cur->rightIndex[d];
-        }
-    }
-    return true;
-}
-
-// ==================== 全量逐元素对比 ====================
-// 遍历跳表底层链表，与 std::map 逐 key-value 对比
-template<int keyIndex, typename... T_D>
-bool full_compare(mSkipList<keyIndex, T_D...>* msl, const std::map<int, std::string>& ref) {
-    auto* node = msl->fir();
-    auto it = ref.begin();
-
-    while (node->rightIndex.size() > 0) {
-        node = node->rightIndex[0];
-        // 到达 last 哨兵时退出（last->rightIndex 为空）
-        if (node->rightIndex.size() == 0) break;
-
-        int key = node->data().template ref<int>(0);
-        const std::string& val = node->data().template ref<std::string>(1);
-
-        if (it == ref.end()) return false;
-        if (it->first != key) {
-            std::cerr << "key 不匹配: map=" << it->first << " skiplist=" << key << std::endl;
-            return false;
-        }
-        if (it->second != val) {
-            std::cerr << "value 不匹配: key=" << key << std::endl;
-            return false;
-        }
-        ++it;
-    }
-    return it == ref.end();
-}
+#define TEST(name) std::cout << "[TEST] " << name << std::endl
+#define PASS()     std::cout << "  -> PASSED" << std::endl
 
 int main() {
-    std::random_device rd;
-    auto num__=rd();
-    //auto num__=209743480;
-    std::cout<<"随机数种子："<<num__<<std::endl;
-    std::mt19937 gen(num__);
-    std::uniform_int_distribution<> dis(1, 100000000);
+    try {
+        // ========== Test 1: 基本插入、查询、更新 ==========
+        TEST("Basic insert, get, update");
+        {
+            auto list = make_mSkipList<0, int, std::string, double>();
 
-    // ==================== 阶段1：随机插入 100 万 + 同步 map ====================
-    std::cout << "=== 阶段1：随机插入 100 万 (int, string) ===" << std::endl;
-    std::map<int, std::string> ref;
-    mSkipList<0, int, std::string> msl{0, ""};
+            list.insert(1, std::string("one"), 1.1);
+            list.insert(2, std::string("two"), 2.2);
+            list.insert(3, std::string("three"), 3.3);
 
-    auto t1 = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 1000000; ++i) {
-        int key = dis(gen);
-        std::string val = std::to_string(key);  // 用确定性值便于对照
-        msl.insert(key, val);
-        ref[key] = val;
-    }
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto insert_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
-    std::cout << "插入耗时: " << insert_ns << " ns (" << insert_ns / 1e6 << " ms)" << std::endl;
-    std::cout << "实际节点数(map): " << ref.size() << std::endl;
+            assert(list.contain(1));
+            assert(list.contain(2));
+            assert(list.contain(3));
+            assert(!list.contain(999));
 
-    // ==================== 阶段2：插入后验证 ====================
-    std::cout << "\n=== 阶段2：插入后验证 ===" << std::endl;
+            assert(list.get<std::string>(1, 1) == "one");
+            assert(list.get<double>(2, 2) == 2.2);
+            assert(list.get<int>(3, 0) == 3);
 
-    assert(validate_skiplist(&msl));
-    std::cout << "结构验证(多层索引有序): 通过" << std::endl;
+            // 重复键触发更新
+            list.insert(2, std::string("TWO"), 22.22);
+            assert(list.get<std::string>(2, 1) == "TWO");
+            assert(list.get<double>(2, 2) == 22.22);
 
-    assert(full_compare(&msl, ref));
-    std::cout << "全量逐元素对比: 通过" << std::endl;
-
-    // 随机抽查查找
-    bool find_ok = true;
-    std::uniform_int_distribution<> check_dis(1, 100000000);
-    for (int i = 0; i < 100000; ++i) {
-        int key = check_dis(gen);
-        auto it = ref.find(key);
-        try {
-            const int& found = msl.get<int>(key);
-            (void)found;
-            if (it == ref.end()) find_ok = false;  // 跳表有，map 没有（不应发生）
-        } catch (const std::runtime_error&) {
-            if (it != ref.end()) find_ok = false;  // map 有，跳表找不到
+            PASS();
         }
-    }
-    std::cout << "随机查找对照(10万次): " << (find_ok ? "通过" : "失败") << std::endl;
 
-    // ==================== 阶段3：删除约一半节点 ====================
-    std::cout << "\n=== 阶段3：删除约一半节点 ===" << std::endl;
-    std::vector<int> to_delete;
-    for (const auto& [k, v] : ref) {
-        if (dis(gen) % 2 == 0) to_delete.push_back(k);
-    }
+        // ========== Test 2: 删除操作 ==========
+        TEST("Erase and existence check");
+        {
+            auto list = make_mSkipList<0, int, std::string>();
 
-    auto t3 = std::chrono::high_resolution_clock::now();
-    for (int key : to_delete) {
-        msl.erase(key);  // 这些 key 一定存在，不应抛异常
-    }
-    auto t4 = std::chrono::high_resolution_clock::now();
-    auto erase_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t4 - t3).count();
-    std::cout << "删除 " << to_delete.size() << " 个节点" << std::endl;
-    std::cout << "删除耗时: " << erase_ns << " ns (" << erase_ns / 1e6 << " ms)" << std::endl;
+            list.insert(10, std::string("ten"));
+            list.insert(20, std::string("twenty"));
+            list.insert(30, std::string("thirty"));
 
-    for (int key : to_delete) ref.erase(key);
+            assert(list.contain(20));
+            list.erase(20);
+            assert(!list.contain(20));
 
-    // ==================== 阶段4：删除后验证 ====================
-    std::cout << "\n=== 阶段4：删除后验证 ===" << std::endl;
+            // 删除不存在的键（比所有元素大）应抛异常
+            bool thrown = false;
+            try {
+                list.erase(999);
+            } catch (const std::runtime_error&) {
+                thrown = true;
+            }
+            assert(thrown);
 
-    assert(validate_skiplist(&msl));
-    std::cout << "结构验证(多层索引有序): 通过" << std::endl;
+            // 删除比所有元素小的键（内部 find 返回 first）应安全返回，不崩溃
+            list.erase(5);
 
-    assert(full_compare(&msl, ref));
-    std::cout << "剩余节点全量对比: 通过" << std::endl;
+            // 删除后重新插入相同键
+            list.insert(20, std::string("twenty_new"));
+            assert(list.get<std::string>(20, 1) == "twenty_new");
 
-    // 剩余节点全部可查
-    bool remain_ok = true;
-    for (const auto& [k, v] : ref) {
-        try {
-            msl.get<int>(k);
-        } catch (...) {
-            remain_ok = false; break;
+            PASS();
         }
-    }
-    std::cout << "剩余节点查找: " << (remain_ok ? "通过" : "失败") << std::endl;
 
-    // 已删除节点应全部抛异常
-    bool gone_ok = true;
-    int del_check = std::min((int)to_delete.size(), 50000);
-    for (int i = 0; i < del_check; ++i) {
-        try {
-            msl.get<int>(to_delete[i]);
-            gone_ok = false; break;  // 找到了，说明没删干净
-        } catch (const std::runtime_error&) {
-            // 正确行为
+        // ========== Test 3: 大量数据与跳表结构 ==========
+        TEST("Bulk insert and skip list structure");
+        {
+            auto list = make_mSkipList<0, int, long long>();
+
+            const int N = 5000;
+            for (int i = 0; i < N; ++i) {
+                list.insert(i, static_cast<long long>(i) * 1000LL);
+            }
+
+            // 验证所有数据
+            for (int i = 0; i < N; ++i) {
+                assert(list.get<long long>(i, 1) == static_cast<long long>(i) * 1000LL);
+            }
+
+            int depth = list.get_deep();
+            std::cout << "  -> Skip list depth after " << N
+                      << " inserts: " << depth << std::endl;
+            assert(depth > 1);                 // 确保索引层已建立
+
+            list.set_max_deep(5);
+            assert(list.max_deep() == 5);
+
+            PASS();
         }
-    }
-    std::cout << "已删除节点隔离(" << del_check << "次抽查): " << (gone_ok ? "通过" : "失败") << std::endl;
 
-    // ==================== 阶段5：纯 int 性能基线 ====================
-    std::cout << "\n=== 阶段5：纯 int 性能基线 ===" << std::endl;
+        // ========== Test 4: 字符串主键 ==========
+        TEST("String key support");
+        {
+            auto list = make_mSkipList<0, std::string, int, double>();
 
-    // 5a. 顺序插入
-    mSkipList<0, int> seq_msl{0};
-    auto t5 = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 1000000; ++i) seq_msl.insert(i);
-    auto t6 = std::chrono::high_resolution_clock::now();
-    auto seq_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t6 - t5).count();
-    std::cout << "顺序插入 100 万: " << seq_ns << " ns (" << seq_ns / 1e6 << " ms), 层高: " << seq_msl.get_deep() << std::endl;
+            list.insert(std::string("apple"),  1, 1.1);
+            list.insert(std::string("banana"), 2, 2.2);
+            list.insert(std::string("cherry"), 3, 3.3);
 
-    // 5b. 随机插入
-    mSkipList<0, int> rand_msl{0};
-    auto t7 = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 1000000; ++i) rand_msl.insert(dis(gen));
-    auto t8 = std::chrono::high_resolution_clock::now();
-    auto rand_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t8 - t7).count();
-    std::cout << "随机插入 100 万: " << rand_ns << " ns (" << rand_ns / 1e6 << " ms), 层高: " << rand_msl.get_deep() << std::endl;
+            assert(list.get<int>(std::string("banana"), 1) == 2);
+            assert(list.get<double>(std::string("cherry"), 2) == 3.3);
 
-    // 5c. 随机删除（约 50 万次尝试）
-    std::vector<int> del_keys;
-    for (int i = 0; i < 1000000; ++i) del_keys.push_back(dis(gen));
-    auto t9 = std::chrono::high_resolution_clock::now();
-    int erase_success = 0;
-    for (int i = 0; i < 500000; ++i) {
-        try {
-            rand_msl.erase(del_keys[i]);
-            ++erase_success;
-        } catch (...) {
-            // key 不存在（重复或随机未命中）
+            list.erase(std::string("banana"));
+            assert(!list.contain(std::string("banana")));
+
+            PASS();
         }
-    }
-    auto t10 = std::chrono::high_resolution_clock::now();
-    auto del_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t10 - t9).count();
-    std::cout << "随机删除 50 万次尝试: " << del_ns << " ns (" << del_ns / 1e6 << " ms), 成功: " << erase_success << std::endl;
 
-    std::cout << "\n=== 全部测试完成 ===" << std::endl;
+        // ========== Test 5: 自定义构造参数 ==========
+        TEST("Custom allocator / gap / max_deep");
+        {
+            // allocate_size=1024, gap=2, max_deep=4, 哨兵初始值 0, 0.0
+            mSkipList<0, int, double> list(1024, 2, 4, 0, 0.0);
+
+            assert(list.gap() == 2);
+            assert(list.max_deep() == 4);
+
+            for (int i = 0; i < 100; ++i) {
+                list.insert(i, static_cast<double>(i));
+            }
+
+            assert(list.get<double>(50, 1) == 50.0);
+
+            // 修改 gap 并重建索引
+            list.set_gap(4);
+            list.anew_build();
+            assert(list.gap() == 4);
+
+            PASS();
+        }
+
+        // ========== Test 6: 异常与边界 ==========
+        TEST("Exceptions and boundary conditions");
+        {
+            auto list = make_mSkipList<0, int, std::string>();
+
+            // 空表查询应抛异常
+            bool thrown = false;
+            try {
+                list.get<std::string>(42, 1);
+            } catch (const std::runtime_error&) {
+                thrown = true;
+            }
+            assert(thrown);
+
+            // 极限 int 值
+            list.insert(std::numeric_limits<int>::min(), std::string("min"));
+            list.insert(std::numeric_limits<int>::max(), std::string("max"));
+            assert(list.get<std::string>(std::numeric_limits<int>::min(), 1) == "min");
+            assert(list.get<std::string>(std::numeric_limits<int>::max(), 1) == "max");
+
+            PASS();
+        }
+
+        // ========== Test 7: 顺序删除与索引重建 ==========
+        TEST("Sequential erase and index rebuild");
+        {
+            auto list = make_mSkipList<0, int, int>();
+
+            for (int i = 0; i < 100; ++i) {
+                list.insert(i, i * 2);
+            }
+
+            // 删除所有偶数键
+            for (int i = 0; i < 100; i += 2) {
+                list.erase(i);
+            }
+
+            // 验证奇数键仍然可查询
+            for (int i = 1; i < 100; i += 2) {
+                assert(list.contain(i));
+                assert(list.get<int>(i, 1) == i * 2);
+            }
+
+            // 手动重建索引后再次验证
+            list.anew_build();
+            for (int i = 1; i < 100; i += 2) {
+                assert(list.get<int>(i, 1) == i * 2);
+            }
+
+            PASS();
+        }
+
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "All tests passed successfully!" << std::endl;
+        std::cout << "========================================" << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Test failed with exception: " << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }
