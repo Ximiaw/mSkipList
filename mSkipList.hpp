@@ -389,7 +389,7 @@ namespace msl{
     };
 
     template<int keyIndex,typename NODE,typename... T_D>
-        requires NodeBase<NODE,T_D...>
+        requires NodeBase<NODE,T_D...>&&(std::semiregular<T_D>&&...)
     class mSkipListBase{
     private:
         NODE* first=nullptr;//不需要手动管理，分配器会管理
@@ -508,6 +508,7 @@ namespace msl{
     };
 
     template<int keyIndex,typename... T_D>
+        requires (std::semiregular<T_D>&&...)
     mSkipList<keyIndex,T_D...> make_mSkipList(){
         return mSkipList<keyIndex,T_D...>{T_D{}...};
     };
