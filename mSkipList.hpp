@@ -106,7 +106,7 @@ namespace msl{
             int old_count=0;
             int new_count=0;
             while(true){
-                if(deep<=0) break;
+                if(deep<=0||deep<=max_deep) break;
                 new_count=right_to_indexed_child(ptr,deep);
                 if(new_count>=gap+2&&old_count<gap+2) break;
                 old_count=new_count;
@@ -441,15 +441,14 @@ namespace msl{
             if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
                 algorithm.delete_build_and_index(node);
                 allocator.del_node(node);
-                return;
             }
-            throw std::runtime_error("key not found.");
         };
         void anew_build(){
             algorithm.anew_build_and_index();
         };
         bool contain(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
             NODE* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
+            if(!node||node==first||node==last) return false;
             return algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key);
         };
         int get_deep(){
