@@ -2,11 +2,8 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include <string>
 #include <chrono>
 #include <random>
-#include <iomanip>
-#include <cassert>
 #include "mSkipList.hpp"
 
 using namespace std;
@@ -18,8 +15,11 @@ int main() {
     auto m=mt19937(rd());
     auto r=uniform_int_distribution<>(1,100000);
 
+    size_t max=1000000;
+    cout<<"随机插查"<<max<<"条数据"<<endl;
+
     vector<size_t> v;
-    for (size_t i = 0; i < 1000000; i++)
+    for (size_t i = 0; i < max; i++)
     {
         v.push_back(r(m));
     }

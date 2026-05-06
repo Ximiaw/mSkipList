@@ -350,8 +350,8 @@ namespace msl{
             free_list.clear();
         };
         void del_node(T* node){
-            free_list.push_back(node);
             traits::destroy(allocator,node);
+            free_list.push_back(node);
         };
         T* get_node(T_D... td){
             if(free_list.size()>0){
@@ -397,6 +397,7 @@ namespace msl{
 
         Allocator<NODE,T_D...> allocator;
 
+        long long lenght=0;
 
         bool connect_node(NODE* left,NODE* right){
             if(!left||!right||left==right)
@@ -426,6 +427,7 @@ namespace msl{
             }
             insert_right(node,node->rightIndex[0],allocator.get_node(td...));
             algorithm.insert_build_and_index(node->rightIndex[0],0);
+            ++lenght;
         };
         template<typename Type>
         const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key,int i){
@@ -441,7 +443,11 @@ namespace msl{
             if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
                 algorithm.delete_build_and_index(node);
                 allocator.del_node(node);
+                --lenght;
             }
+        };
+        long long size(){
+            return lenght;
         };
         void anew_build(){
             algorithm.anew_build_and_index();
