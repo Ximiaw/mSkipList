@@ -41,25 +41,12 @@ namespace msl{
     using nodeIndexList=std::vector<T*>;
 
     template<typename... T_D>
-    struct V_Node;
-
-    template<typename... T_D>
     struct Node{
         nodeIndexList<Node<T_D...>> leftIndex;
         nodeIndexList<Node<T_D...>> rightIndex;
-        nodeIndexList<V_Node<T_D...>> v_node;//重建索引时，获取视图，减少一次查询
         Data<T_D...> data_;
         Data<T_D...>& data(){ return data_; };//禁止修改当前主键，如果改到其他主键则通知视图删除节点，然后重新插入
         Node(T_D... args):data_(std::forward<T_D>(args)...){};
-    };
-
-    template<typename... T_D>
-    struct V_Node{
-        nodeIndexList<V_Node<T_D...>> leftIndex;
-        nodeIndexList<V_Node<T_D...>> rightIndex;
-        Node<T_D...>* node=nullptr;
-        Data<T_D...>& data(){ return node->data(); };//可能报错，但是如果对应数据节点不存在则该视图不应该存在
-        V_Node(Node<T_D...>* node):node(node){};
     };
 
     template<typename T,typename... T_D>
