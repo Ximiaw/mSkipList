@@ -336,7 +336,7 @@ private:
     std::allocator<T> allocator;
     using traits = std::allocator_traits<decltype(allocator)>;
     std::vector<T*> allocator_ptrs;
-    std::vector<void*> free_list;
+    std::vector<T*> free_list;
     size_t allocator_index=0;
     int allocate_size=1024;
 public:
@@ -409,41 +409,27 @@ enum class LOCATION{
     RIGHT
 };
 
-template<int keyIndex,typename... T_D>
-class mSkipList;
-
-template<int keyIndex,typename... T_D>
-class mSkipList_view{
+template<int keyIndex,typename NODE,typename... T_D>
+    requires NodeBase<NODE,T_D...>
+class mSkipListBase{
 private:
-    V_Node<T_D...>* first=nullptr;
-    V_Node<T_D...>* last=nullptr;
-    Algorithm<V_Node<T_D...>,keyIndex,T_D...> algorithm;
-    mSkipList<keyIndex,T_D...>* base=nullptr;
-    const int key_index=keyIndex;
-    
-};
+    NODE* first=nullptr;//不需要手动管理，分配器会管理
+    NODE* last=nullptr;
 
-template<int keyIndex,typename... T_D>
-class mSkipList{
-private:
-    Node<T_D...>* first=nullptr;//不需要手动管理，分配器会管理
-    Node<T_D...>* last=nullptr;
-
-    Algorithm<Node<T_D...>,keyIndex,T_D...> algorithm;
-    std::vector<std::shared_ptr<mSkipList_view<keyIndex,T_D...>>> views;
+    Algorithm<NODE,keyIndex,T_D...> algorithm;
     const int key_index=keyIndex;
 
-    Allocator<Node<T_D...>,T_D...> allocator;
+    Allocator<NODE,T_D...> allocator;
 
 
-    bool connect_node(Node<T_D...>* left,Node<T_D...>* right){
+    bool connect_node(NODE* left,NODE* right){
         if(!left||!right||left==right)
             return false;
         left->rightIndex[0]=right;
         right->leftIndex[0]=left;
         return true;
     };
-    bool insert_right(Node<T_D...>* left,Node<T_D...>* right,Node<T_D...>* node){
+    bool insert_right(NODE* left,NODE* right,NODE* node){
         if(!left||!right||!node
             ||!(left->rightIndex[0]==right&&right->leftIndex[0]==left)
             ||node->leftIndex.size()!=0||node->rightIndex.size()!=0)
@@ -457,7 +443,7 @@ private:
 public:
     void insert(T_D... td){
         auto key=std::get<keyIndex>(std::make_tuple(td...));
-        Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
+        NODE* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
             node->data().data()=std::move(std::make_tuple(td...));
             return;
@@ -466,10 +452,10 @@ public:
         algorithm.insert_build_and_index(node->rightIndex[0],0);
     };
     template<typename Type>
-    const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
-        Node<T_D...>* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
+    const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key,int i){
+        NODE* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
         if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
-            return std::get<keyIndex>(node->data().data());
+            return node->data().ref<Type>(i);
         }
         throw std::runtime_error("key not found.");
     };
@@ -499,7 +485,7 @@ public:
         algorithm.gap=gap;
     };
 public:
-    mSkipList(T_D... td):allocator(4096){//td可以是任意数据，这里只是填入便于构造哨兵
+    mSkipListBase(T_D... td):allocator(4096){//td可以是任意数据，这里只是填入便于构造哨兵
         first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
@@ -508,7 +494,7 @@ public:
         first->rightIndex.push_back(last);
         last->leftIndex.push_back(first);
     };
-    mSkipList(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td):allocator(allocate_size){//td可以是任意数据，这里只是填入便于构造哨兵
+    mSkipListBase(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td):allocator(allocate_size){//td可以是任意数据，这里只是填入便于构造哨兵
         first=allocator.get_node(td...);
         algorithm.first=first;
         allocator.first=first;
@@ -519,10 +505,32 @@ public:
         algorithm.gap=gap;
         algorithm.max_deep=max_deep;
     };
+};
 
-    Node<T_D...>* fir(){//test
-        return first;
-    };
+
+template<int keyIndex,typename... T_D>
+class mSkipList;
+
+template<int keyIndex,typename... T_D>
+class mSkipList_view:public mSkipListBase<keyIndex,V_Node<T_D...>,T_D...>{
+private:
+    mSkipList<keyIndex,T_D...>* base=nullptr;
+public:
+    mSkipList_view(T_D... td)
+        :mSkipListBase(td...){};
+    mSkipList_view(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td)
+        :mSkipListBase(allocate_size,gap,max_deep,td...){};
+};
+
+template<int keyIndex,typename... T_D>
+class mSkipList:public mSkipListBase<keyIndex,Node<T_D...>,T_D...>{
+private:
+    std::vector<std::shared_ptr<mSkipList_view<keyIndex,T_D...>>> views;
+public:
+    mSkipList(T_D... td)
+        :mSkipListBase(td...){};
+    mSkipList(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td)
+        :mSkipListBase(allocate_size,gap,max_deep,td...){};
 };
 
 #endif // MSKIPLIST
