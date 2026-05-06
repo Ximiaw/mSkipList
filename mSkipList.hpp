@@ -119,6 +119,7 @@ namespace msl{
             int old_count=0;
             int new_count=0;
             while(true){
+                if(deep<=0) break;
                 new_count=right_to_indexed_child(ptr,deep);
                 if(new_count>=gap+2&&old_count<gap+2) break;
                 old_count=new_count;
@@ -298,7 +299,7 @@ namespace msl{
                     connect_node(ptr->leftIndex[i],ptr->rightIndex[i],i);
                 }
                 clear_index_deep(ptr,c_i_d);
-                if(right->leftIndex.size()>1&&left->rightIndex.size()>1&&right!=last){
+                if(right->leftIndex.size()>1&&left->rightIndex.size()>1&&right!=last&&right!=first){
                     if(ptr==right) break;
                     ptr=right;
                     c_i_d=0;
@@ -498,7 +499,7 @@ namespace msl{
             first->rightIndex.push_back(last);
             last->leftIndex.push_back(first);
             algorithm.gap=gap;
-            algorithm.max_deep=max_deep;
+            algorithm.max_deep=max_deep-1;
         };
     };
 
@@ -513,7 +514,7 @@ namespace msl{
 
     template<int keyIndex,typename... T_D>
     mSkipList<keyIndex,T_D...> make_mSkipList(){
-        return mSkipList<keyIndex,T_D...>{T_D{},...};
+        return mSkipList<keyIndex,T_D...>{T_D{}...};
     };
 };
 
