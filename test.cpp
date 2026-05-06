@@ -13,10 +13,11 @@ using namespace std::chrono;
 int main() {
     auto rd=random_device();
     auto m=mt19937(rd());
-    auto r=uniform_int_distribution<>(1,100000);
+    size_t random_max=500000;
+    auto r=uniform_int_distribution<>(1,random_max);
 
     size_t max=1000000;
-    cout<<"随机插查"<<max<<"条数据"<<endl;
+    cout<<"随机插查"<<max<<"条1~"<<random_max<<endl;
 
     vector<size_t> v;
     for (size_t i = 0; i < max; i++)
