@@ -4,7 +4,7 @@
 
 ## 特性
 
-- **Header-only**：单头文件 `mSkipList.h`，包含即可用
+- **Header-only**：单头文件 `mSkipList.hpp`，包含即可用
 - **C++20 现代语法**：使用 Concepts、Requires 约束、折叠表达式等
 - **多字段数据支持**：通过可变参数模板存储任意类型、任意数量的字段
 - **灵活的主键选择**：可通过模板参数指定任意字段作为排序和查找主键
@@ -21,7 +21,7 @@
 ## 快速开始
 
 ```cpp
-#include "mSkipList.h"
+#include "mSkipList.hpp"
 #include <iostream>
 #include <string>
 
@@ -133,7 +133,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 - 跨类型字段组合
 
 ```bash
-g++ -std=c++20 mSkipList.h test1.cpp -O3 -o test && ./test
+g++ -std=c++20 mSkipList.hpp test1.cpp -O3 -o test && ./test
 # 59/59 通过
 ```
 
@@ -141,7 +141,7 @@ g++ -std=c++20 mSkipList.h test1.cpp -O3 -o test && ./test
 对比 `mSkipList` 与 `std::map` 的插入/查找性能：
 
 ```bash
-g++ -std=c++20 mSkipList.h test.cpp -O3 -o test && ./test
+g++ -std=c++20 mSkipList.hpp test.cpp -O3 -o test && ./test
 ```
 
 典型结果（100 万条数据，范围 1~50 万）：
