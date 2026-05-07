@@ -40,7 +40,7 @@ namespace msl{
         };
     };
 
-    template<typename T,int arrSize=18>
+    template<typename T,int arrSize=5>
     class mArray{
     private:
         std::array<T,arrSize> arr;
