@@ -446,21 +446,6 @@ namespace msl{
             traits::construct(allocator,allocator_ptrs.back()+allocator_index-1,td...);
             return allocator_ptrs.back()+allocator_index-1;
         };
-        T* get_v_node(Node<T_D...>* node){
-            if(free_list.size()>0){
-                T* v_node=free_list.back();
-                free_list.pop_back();
-                traits::construct(allocator,v_node,node);
-                return v_node;
-            }
-            ++allocator_index;
-            if(allocate_size<allocator_index){
-                allocator_index=1;
-                allocator_ptrs.push_back(allocator.allocate(allocate_size));
-            }
-            traits::construct(allocator,allocator_ptrs.back()+allocator_index-1,node);
-            return allocator_ptrs.back()+allocator_index-1;
-        };
     };
 
     template<int keyIndex,typename NODE,typename... T_D>
