@@ -149,8 +149,8 @@ g++ -std=c++20 mSkipList.hpp test.cpp -O3 -o test && ./test
 | 操作 | std::map | mSkipList |
 |------|----------|-----------|
 | 插入 | ~150 ms | ~540 ms |
-| 查找 | ~270 ms | ~510 ms |
-| 删除 | ~50 ms | ~140 ms |
+| 查找 | ~270 ms | ~470 ms |
+| 删除 | ~50 ms | ~100 ms |
 
 ## 测试验证
 

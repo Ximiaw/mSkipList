@@ -85,7 +85,7 @@ class mSkipList<K,V,true,Derived>{
 protected:
     v_node<K,V>* first_=nullptr;
     v_node<K,V>* last_=nullptr;
-    long long lenght=0;
+    long long length=0;
     int maxDeep_=-2;//最高的层数
     int gap=3;//两端具有下一层索引的节点中间有几个节点需要建立新的索引
     int leftToMidGap(){ return gap%2==0?gap/2:gap/2+1; };//若达到新建缩引条件，则从左边节点到新的需要提升索引的节点需要右移几次
@@ -512,7 +512,7 @@ public:
         return false;
     };
     const long long size(){
-        return lenght;
+        return length;
     };
     const int deep(){
         return first()->rightIndex.size();
@@ -538,11 +538,11 @@ public:
         if(operate==OPERATE::ADD){
             //node是新添加的节点，需要给他建立索引
             insertNodeAndIndex(node);
-            ++lenght;
+            ++length;
         }else if(operate==OPERATE::DEL){
             //node是将删除的节点，清理他的索引
             deleteNodeAndIndex(node);
-            --lenght;
+            --length;
         }
     };
 public:
