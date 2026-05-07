@@ -115,9 +115,22 @@ namespace msl{
     using nodeIndexList=mArray<T*>;
 
     template<typename... T_D>
+    struct Node;
+
+    template<typename... T_D>
+    struct V_Node{
+        nodeIndexList<V_Node<T_D...>> leftIndex;
+        nodeIndexList<V_Node<T_D...>> rightIndex;
+        Node<T_D...>* node=nullptr;
+        Data<T_D...>& data(){ return node->data(); };//可能报错，但是如果对应数据节点不存在则该视图不应该存在
+        V_Node(Node<T_D...>* node):node(node){};
+    };
+
+    template<typename... T_D>
     struct Node{
         nodeIndexList<Node<T_D...>> leftIndex;
         nodeIndexList<Node<T_D...>> rightIndex;
+        nodeIndexList<V_Node<T_D...>> v_node;
         Data<T_D...> data_;
         Data<T_D...>& data(){ return data_; };//禁止修改当前主键，如果改到其他主键则通知视图删除节点，然后重新插入
         Node(T_D... args):data_(std::forward<T_D>(args)...){};
@@ -496,11 +509,12 @@ namespace msl{
             return true;
         };
     public:
-        void insert(T_D... td){
-            auto key=std::get<keyIndex>(std::make_tuple(td...));
+        void insert_task(T_D... td){
+            auto td_tuple=std::make_tuple(td...);
+            auto key=std::get<keyIndex>(td_tuple);
             NODE* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点
             if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
-                node->data().data()=std::move(std::make_tuple(td...));
+                node->data().data()=std::move(td_tuple);
                 return;
             }
             insert_right(node,node->rightIndex[0],allocator.get_node(td...));
@@ -515,7 +529,7 @@ namespace msl{
             }
             throw std::runtime_error("key not found.");
         };
-        void erase(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
+        void erase_task(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
             auto node=algorithm.find(key);
             if(node==first||node==last) return;
             if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
@@ -573,14 +587,52 @@ namespace msl{
         };
     };
 
+    //通知进行什么操作
+    enum class OPERATE{
+        ADD,
+        DEL
+    };
+
+    //表示位置，在通知数据模型是要用到
+    enum class LOCATION{
+        MIDDLE,
+        RIGHT
+    };
+
+    template<int keyIndex,typename... T_D>
+    class mSkipList;
+
+    template<int keyIndex,typename... T_D>
+    class mSkipList_view:public mSkipListBase<keyIndex,V_Node<T_D...>,T_D...>{
+    private:
+        mSkipList<keyIndex,T_D...>* base=nullptr;
+    public:
+        mSkipList_view(T_D... td)
+            :mSkipListBase(td...){};
+        mSkipList_view(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td)
+            :mSkipListBase(allocate_size,gap,max_deep,td...){};
+    };
+
+
+
+
+
     template<int keyIndex,typename... T_D>
     class mSkipList:public mSkipListBase<keyIndex,Node<T_D...>,T_D...>{
+    private:
+        std::vector<std::shared_ptr<mSkipList_view<keyIndex,T_D...>>> views;
     public:
         mSkipList(T_D... td)
             :mSkipListBase<keyIndex,Node<T_D...>,T_D...>(td...){};
         mSkipList(int allocate_size=4096,int gap=3,int max_deep=-1,T_D... td)
             :mSkipListBase<keyIndex,Node<T_D...>,T_D...>(allocate_size,gap,max_deep,td...){};
     };
+
+
+
+
+
+    
 
     template<int keyIndex,typename... T_D>
         requires (std::semiregular<T_D>&&...)
