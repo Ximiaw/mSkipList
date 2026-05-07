@@ -40,10 +40,10 @@ namespace msl{
         };
     };
 
-    template<typename T>
+    template<typename T,int arrSize=18>
     class mArray{
     private:
-        std::array<T,32> arr;
+        std::array<T,arrSize> arr;
         std::vector<T>* vec=nullptr;
 
         int length=0;
@@ -58,21 +58,21 @@ namespace msl{
         mArray& operator=(mArray&&)=delete;
         T& operator[](int i){
             if(i<0&&i>=length) throw std::runtime_error("mArray:overstep the boundary.");
-            if(i<32){
+            if(i<arrSize){
                 return arr[i];
             }else{
-                int index=i-31;
+                int index=i-arrSize;
                 return vec->at(index);
             }
         };
         T& back(){
-            if(length>32){
+            if(length>arrSize){
                 return vec->back();
             }
             return arr[length-1];
         };
         void push_back(const T& data){
-            if(length>=32){
+            if(length>=arrSize){
                 if(!vec){
                     vec=new std::vector<T>;
                 }
@@ -84,7 +84,7 @@ namespace msl{
             arr[length-1]=data;
         };
         void push_back(T&& data){
-            if(length>=32){
+            if(length>=arrSize){
                 if(!vec){
                     vec=new std::vector<T>;
                 }
@@ -100,10 +100,10 @@ namespace msl{
         };
         void resize(int i){
             if(i>length) return;
-            if(i<=32&&vec){
+            if(i<=arrSize&&vec){
                 vec->clear();
             }else{
-                int len=i-32;
+                int len=i-arrSize;
                 if(vec)
                     vec->resize(len);
             }
