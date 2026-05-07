@@ -41,7 +41,78 @@ namespace msl{
     };
 
     template<typename T>
-    using nodeIndexList=std::vector<T*>;
+    class mArray{
+    private:
+        std::array<T,32> arr;
+        std::vector<T>* vec=nullptr;
+
+        int length=0;
+    public:
+        mArray(){};
+        ~mArray(){
+            if(vec) delete vec;
+        };
+        mArray(const mArray&)=delete;
+        mArray(mArray&&)=delete;
+        mArray& operator=(const mArray&)=delete;
+        mArray& operator=(mArray&&)=delete;
+        T& operator[](int i){
+            if(i<0&&i>=length) throw std::runtime_error("mArray:overstep the boundary.");
+            if(i<32){
+                return arr[i];
+            }else{
+                int index=i-31;
+                return vec->at(index);
+            }
+        };
+        T& back(){
+            if(length>32){
+                return vec->back();
+            }
+            return arr[length-1];
+        };
+        void push_back(const T& data){
+            if(length>=32){
+                if(!vec){
+                    vec=new std::vector<T>;
+                }
+                vec->push_back(T{data});
+                ++length;
+                return;
+            }
+            ++length;
+            arr[length-1]=data;
+        };
+        void push_back(T&& data){
+            if(length>=32){
+                if(!vec){
+                    vec=new std::vector<T>;
+                }
+                vec->push_back(std::move(data));
+                ++length;
+                return;
+            }
+            ++length;
+            arr[length-1]=std::move(data);
+        };
+        int size(){
+            return length;
+        };
+        void resize(int i){
+            if(i>length) return;
+            if(i<=32&&vec){
+                vec->clear();
+            }else{
+                int len=i-32;
+                if(vec)
+                    vec->resize(len);
+            }
+            length=i;
+        };
+    };
+
+    template<typename T>
+    using nodeIndexList=mArray<T*>;
 
     template<typename... T_D>
     struct Node{
@@ -352,6 +423,10 @@ namespace msl{
             allocator_ptrs.clear();
             free_list.clear();
         };
+        Allocator(const Allocator&)=delete;
+        Allocator(Allocator&&)=delete;
+        Allocator& operator=(const Allocator&)=delete;
+        Allocator& operator=(Allocator&&)=delete;
         void del_node(T* node){
             traits::destroy(allocator,node);
             free_list.push_back(node);
@@ -400,7 +475,7 @@ namespace msl{
 
         Allocator<NODE,T_D...> allocator;
 
-        long long lenght=0;
+        long long length=0;
 
         bool connect_node(NODE* left,NODE* right){
             if(!left||!right||left==right)
@@ -430,7 +505,7 @@ namespace msl{
             }
             insert_right(node,node->rightIndex[0],allocator.get_node(td...));
             algorithm.insert_build_and_index(node->rightIndex[0],0);
-            ++lenght;
+            ++length;
         };
         template<typename Type>
         const Type& get(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key,int i){
@@ -446,11 +521,11 @@ namespace msl{
             if(algorithm.a_is_equal_to_b(node,node->data().data(),nullptr,key)){
                 algorithm.delete_build_and_index(node);
                 allocator.del_node(node);
-                --lenght;
+                --length;
             }
         };
         long long size(){
-            return lenght;
+            return length;
         };
         void anew_build(){
             algorithm.anew_build_and_index();
