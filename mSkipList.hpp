@@ -120,7 +120,7 @@ namespace msl{
         nodeIndexList<Node<T_D...>> leftIndex;
         nodeIndexList<Node<T_D...>> rightIndex;
         Data<T_D...> data_;
-        Data<T_D...>& data(){ return data_; };//禁止修改当前主键，如果改到其他主键则通知视图删除节点，然后重新插入
+        Data<T_D...>& data(){ return data_; };//禁止修改当前主键，如果需要则删除节点，然后重新插入
         Node(T_D... args):data_(std::forward<T_D>(args)...){};
     };
 
@@ -349,7 +349,7 @@ namespace msl{
             clear_index(ptr);
             top_build_and_index();
         };
-        void delete_build_and_index(T* ptr){//会清除底层，如果多视图则主视图要最后调用
+        void delete_build_and_index(T* ptr){//会清除底层
             if(!ptr||ptr==first||ptr==last) return;
             T* left=ptr->leftIndex[0];
             T* right=ptr->rightIndex[0];
