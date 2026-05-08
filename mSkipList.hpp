@@ -33,7 +33,7 @@ namespace msl{
         };
         template<typename T>
         T& ref(int i) {
-            assert(i >= 0 && i < sizeof...(T_D) && "Index out of bounds");
+            assert(i >= 0 && static_cast<size_t>(i) < sizeof...(T_D) && "Index out of bounds");
             auto* ptr = static_cast<T*>(ptrs_[i]);
             assert(ptr != nullptr && "Null pointer");
             return *ptr; 
@@ -402,7 +402,7 @@ namespace msl{
         std::vector<T*> allocator_ptrs;
         std::vector<T*> free_list;
         size_t allocator_index=0;
-        int allocate_size=1024;
+        size_t allocate_size=1024;
     public:
         T* first=nullptr;
     public:
@@ -418,7 +418,7 @@ namespace msl{
                 first=ptr;
             }
             traits::destroy(allocator,ptr);
-            for(int i=0;i<allocator_ptrs.size();++i){
+            for(size_t i=0;i<allocator_ptrs.size();++i){
                 allocator.deallocate(allocator_ptrs[i],allocate_size);
             }
             allocator_ptrs.clear();
@@ -644,6 +644,11 @@ namespace msl{
             algorithm.gap=gap;
             algorithm.max_deep=max_deep-1;
         };
+        ~mSkipListBase()=default;
+        mSkipListBase(const mSkipListBase<keyIndex,NODE,T_D...>&)=delete;
+        mSkipListBase(mSkipListBase<keyIndex,NODE,T_D...>&&)=delete;
+        mSkipListBase<keyIndex,NODE,T_D...>& operator=(const mSkipListBase<keyIndex,NODE,T_D...>&)=delete;
+        mSkipListBase<keyIndex,NODE,T_D...>& operator=(mSkipListBase<keyIndex,NODE,T_D...>&&)=delete;
     };
 
     template<int keyIndex,typename... T_D>
