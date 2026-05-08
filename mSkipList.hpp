@@ -57,7 +57,7 @@ namespace msl{
         mArray& operator=(const mArray&)=delete;
         mArray& operator=(mArray&&)=delete;
         T& operator[](int i){
-            if(i<0&&i>=length) throw std::runtime_error("mArray:overstep the boundary.");
+            if(i<0||i>=length) throw std::runtime_error("mArray:overstep the boundary.");
             if(i<arrSize){
                 return arr[i];
             }else{
@@ -66,6 +66,7 @@ namespace msl{
             }
         };
         T& back(){
+            if(i==0) throw std::runtime_error("mArray:overstep the boundary.");
             if(length>arrSize){
                 return vec->back();
             }
