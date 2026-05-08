@@ -66,7 +66,7 @@ namespace msl{
             }
         };
         T& back(){
-            if(i==0) throw std::runtime_error("mArray:overstep the boundary.");
+            if(length==0) throw std::runtime_error("mArray:overstep the boundary.");
             if(length>arrSize){
                 return vec->back();
             }
