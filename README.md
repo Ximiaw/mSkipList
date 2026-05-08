@@ -173,7 +173,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 ### 性能测试（test2.cpp）
 
 > 环境：GCC 13+，`-O3`，100 万条数据，键值范围 1~50 万，取 5 次运行平均值。  
-> 测试代码见 `test.cpp`，`std::map` 使用 `find()` 纯查找、`erase()` 纯删除，避免 `operator[]` 的插入副作用。
+> 测试代码见 `test2.cpp`，`std::map` 使用 `find()` 纯查找、`erase()` 纯删除，避免 `operator[]` 的插入副作用。
 
 | 场景 | 操作 | std::map | mSkipList | 倍数 (跳表/map) |
 |------|------|----------|-----------|-----------------|
