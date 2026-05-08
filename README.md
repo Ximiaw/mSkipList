@@ -24,7 +24,7 @@
 ## 快速开始
 
 ```cpp
-#include "mSkipList.h"
+#include "mSkipList.hpp"
 #include <iostream>
 #include <string>
 
