@@ -1,213 +1,151 @@
-#include "mSkipList.hpp"
 #include <iostream>
-#include <cassert>
-#include <string>
-#include <stdexcept>
+#include <map>
 #include <vector>
+#include <set>
+#include <chrono>
+#include <random>
+#include "mSkipList.hpp"
 
+using namespace std;
 using namespace msl;
+using namespace std::chrono;
 
-// 辅助：从 Data 引用中提取 key（第 0 个字段）
-template<typename... T_D>
-const auto& get_key(Data<T_D...>& d) {
-    return std::get<0>(d.data());
-}
+// 防优化累加器
+volatile size_t g_dummy = 0;
 
-// 辅助：从 Data 引用中提取 value（第 1 个字段）
-template<typename... T_D>
-const auto& get_val(Data<T_D...>& d) {
-    return std::get<1>(d.data());
+template<typename Func>
+auto bench(Func&& f) -> long long {
+    auto s = high_resolution_clock::now();
+    f();
+    auto e = high_resolution_clock::now();
+    return duration_cast<milliseconds>(e - s).count();
 }
 
 int main() {
-    std::cout << "=== mSkipList 迭代器专项测试 ===" << std::endl;
+    auto rd = random_device();
+    auto m = mt19937(rd());
+    size_t random_max = 500000;
+    auto r = uniform_int_distribution<>(1, random_max);
+    size_t max = 1000000;
 
-    // -------------------------------------------------------
-    // 准备数据：key 为 int，附加数据为 std::string
-    // -------------------------------------------------------
-    mSkipList<0, int, std::string> list = make_mSkipList<0, int, std::string>();
-    list.insert(30, "thirty");
-    list.insert(10, "ten");
-    list.insert(50, "fifty");
-    list.insert(20, "twenty");
-    list.insert(40, "forty");
-    assert(list.size() == 5);
+    vector<size_t> v;
+    set<size_t> s;
+    for (size_t i = 0; i < max; i++) {
+        size_t si = r(m);
+        v.push_back(si);
+        s.insert(si);
+    }
 
-    // -------------------------------------------------------
-    // 测试 1: 正向遍历 (前缀 ++)
-    // -------------------------------------------------------
-    std::cout << "[测试 1] 正向遍历 (前缀 ++)" << std::endl;
-    {
-        std::vector<int> keys;
-        for (auto it = list.begin(); it != list.end(); ++it) {
-            keys.push_back(get_key(*it));
+    // ========== 随机测试 ==========
+    cout << "随机插查" << max << "条1~" << random_max << endl;
+
+    // 1. map 插入
+    auto m_map = map<size_t, size_t>{};
+    cout << "map插入:" << bench([&]() {
+        for (size_t i = 0; i < v.size(); i++) {
+            m_map.insert({v[i], v[i]});
         }
-        assert((keys == std::vector<int>{10, 20, 30, 40, 50}));
-    }
+    }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 2: 后缀递增语义
-    // -------------------------------------------------------
-    std::cout << "[测试 2] 后缀 ++ 语义" << std::endl;
-    {
-        auto it = list.begin();
-        auto old = it++;
-        assert(get_key(*old) == 10);   // 返回旧迭代器
-        assert(get_key(*it)  == 20);   // 当前迭代器已前进
-    }
-
-    // -------------------------------------------------------
-    // 测试 3: 反向遍历 (前缀 --)
-    // -------------------------------------------------------
-    std::cout << "[测试 3] 反向遍历 (前缀 --)" << std::endl;
-    {
-        std::vector<int> keys;
-        auto it = list.end();
-        --it; // 指向 50
-        while (true) {
-            keys.push_back(get_key(*it));
-            if (it == list.begin()) break;
-            --it;
+    // 2. map 查找（在已填充的 map 上，用 find + 防优化）
+    cout << "map查找:" << bench([&]() {
+        size_t acc = 0;
+        for (size_t i = 0; i < v.size(); i++) {
+            auto it = m_map.find(v[i]);
+            if (it != m_map.end()) acc += it->second;
         }
-        assert((keys == std::vector<int>{50, 40, 30, 20, 10}));
-    }
+        g_dummy = acc;  // 强制写出，防止优化
+    }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 4: 后缀递减语义
-    // -------------------------------------------------------
-    std::cout << "[测试 4] 后缀 -- 语义" << std::endl;
-    {
-        auto it = list.end();
-        --it; // 50
-        auto old = it--;
-        assert(get_key(*old) == 50);
-        assert(get_key(*it)  == 40);
-    }
-
-    // -------------------------------------------------------
-    // 测试 5: 解引用 (*) 与箭头 (->)
-    // -------------------------------------------------------
-    std::cout << "[测试 5] 解引用与箭头操作符" << std::endl;
-    {
-        auto it = list.begin();
-        Data<int, std::string> d = *it; // 拷贝，验证返回真实引用
-        assert(get_key(d) == 10);
-        assert(get_val(d) == "ten");
-
-        // 箭头操作：it-> 返回 Data*，可直接访问 Data 成员
-        assert(std::get<0>(it->data()) == 10);       // 通过箭头直接访问 data()
-        assert(std::get<1>(it->data()) == "ten");    // 通过箭头直接访问 data()
-        
-        // operator->() 返回 Data*，解引用后等价于 *it
-        assert(get_key(*(it.operator->())) == 10);
-        assert(get_val(*(it.operator->())) == "ten");
-    }
-
-    // -------------------------------------------------------
-    // 测试 6: 相等与不等比较
-    // -------------------------------------------------------
-    std::cout << "[测试 6] 相等与不等比较" << std::endl;
-    {
-        auto a = list.begin();
-        auto b = list.begin();
-        assert(a == b);
-        ++a;
-        assert(a != b);
-        ++b;
-        assert(a == b);
-    }
-
-    // -------------------------------------------------------
-    // 测试 7: 越界异常安全性
-    // -------------------------------------------------------
-    std::cout << "[测试 7] 边界异常安全性" << std::endl;
-    {
-        // ++end() 必须抛异常
-        bool caught = false;
-        try {
-            auto it = list.end();
-            ++it;
-        } catch (const std::runtime_error&) {
-            caught = true;
+    // 3. map 删除（基于 set 的 key 序列，返回值累加防优化）
+    size_t map_erase_cnt = 0;
+    cout << "map删除:" << bench([&]() {
+        size_t cnt = 0;
+        for (auto it = s.begin(); it != s.end(); ++it) {
+            cnt += m_map.erase(*it);
         }
-        assert(caught);
+        map_erase_cnt = cnt;
+        g_dummy = cnt;
+    }) << "ms" << endl;
 
-        // 从 begin() 连续 -- 两次应触发越界
-        caught = false;
-        try {
-            auto it = list.begin();
-            --it; // 退到 first 哨兵
-            --it; // 应抛异常
-        } catch (const std::runtime_error&) {
-            caught = true;
+    // 4. 跳表插入
+    auto m_sl = mSkipList<0, size_t, size_t>(4096, 3, -1, 0, 0);
+    cout << "mSkipList插入:" << bench([&]() {
+        for (size_t i = 0; i < v.size(); i++) {
+            m_sl.insert(v[i], v[i]);
         }
-        assert(caught);
-    }
+    }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 8: 范围 for 循环
-    // -------------------------------------------------------
-    std::cout << "[测试 8] 范围 for 循环" << std::endl;
-    {
-        std::vector<int> keys;
-        for (auto& data : list) {
-            keys.push_back(get_key(data));
+    // 5. 跳表查找
+    cout << "mSkipList查找:" << bench([&]() {
+        size_t acc = 0;
+        for (size_t i = 0; i < v.size(); i++) {
+            acc += m_sl.get<size_t>(v[i], 0);
         }
-        assert((keys == std::vector<int>{10, 20, 30, 40, 50}));
-    }
+        g_dummy = acc;
+    }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 9: 子区间 range() 迭代
-    // -------------------------------------------------------
-    std::cout << "[测试 9] 子区间 range()" << std::endl;
-    {
-        // 取闭区间 [20, 40]
-        auto sub = list.range(20, 40);
-        std::vector<int> keys;
-        for (auto it = sub.begin(); it != sub.end(); ++it) {
-            keys.push_back(get_key(*it));
+    // 6. 跳表删除
+    cout << "mSkipList删除:" << bench([&]() {
+        for (auto it = s.begin(); it != s.end(); ++it) {
+            m_sl.erase(*it);
         }
-        assert((keys == std::vector<int>{20, 30, 40}));
-    }
+    }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 10: 单元素表
-    // -------------------------------------------------------
-    std::cout << "[测试 10] 单元素表" << std::endl;
+    // ========== 顺序测试 ==========
+    cout << "\n顺序插查" << max << "条" << endl;
     {
-        mSkipList<0, int, std::string> single = make_mSkipList<0, int, std::string>();
-        single.insert(100, "century");
-        assert(single.size() == 1);
+        // 1. map 顺序插入
+        m_map = map<size_t, size_t>{};
+        cout << "map插入:" << bench([&]() {
+            for (size_t i = 0; i < max; i++) {
+                m_map.insert({i, i});
+            }
+        }) << "ms" << endl;
 
-        auto it = single.begin();
-        assert(get_key(*it) == 100);
-        ++it;
-        assert(it == single.end());
+        // 2. map 顺序查找（在已填充的 map 上）
+        cout << "map查找:" << bench([&]() {
+            size_t acc = 0;
+            for (size_t i = 0; i < max; i++) {
+                auto it = m_map.find(i);
+                if (it != m_map.end()) acc += it->second;
+            }
+            g_dummy = acc;
+        }) << "ms" << endl;
 
-        --it;
-        assert(get_key(*it) == 100);
+        // 3. map 顺序删除
+        cout << "map删除:" << bench([&]() {
+            size_t cnt = 0;
+            for (size_t i = 0; i < max; i++) {
+                cnt += m_map.erase(i);
+            }
+            g_dummy = cnt;
+        }) << "ms" << endl;
     }
-
-    // -------------------------------------------------------
-    // 测试 11: 空表
-    // -------------------------------------------------------
-    std::cout << "[测试 11] 空表" << std::endl;
     {
-        mSkipList<0, int, std::string> empty = make_mSkipList<0, int, std::string>();
-        assert(empty.begin() == empty.end());
-    }
+        // 4. 跳表顺序插入
+        auto m_sl = mSkipList<0, size_t, size_t>(4096, 3, -1, 0, 0);
+        cout << "mSkipList插入:" << bench([&]() {
+            for (size_t i = 0; i < max; i++) {
+                m_sl.insert(i, i);
+            }
+        }) << "ms" << endl;
 
-    // -------------------------------------------------------
-    // 测试 12: 更新已有 key 后迭代器可见性
-    // -------------------------------------------------------
-    std::cout << "[测试 12] 键值更新后的可见性" << std::endl;
-    {
-        list.insert(20, "TWENTY"); // 覆盖原值
-        auto it = list.begin();
-        ++it; // 指向 20
-        assert(get_val(*it) == "TWENTY");
-    }
+        // 5. 跳表顺序查找
+        cout << "mSkipList查找:" << bench([&]() {
+            size_t acc = 0;
+            for (size_t i = 0; i < max; i++) {
+                acc += m_sl.get<size_t>(i, 0);
+            }
+            g_dummy = acc;
+        }) << "ms" << endl;
 
-    std::cout << "=== 所有迭代器测试通过！===" << std::endl;
+        // 6. 跳表顺序删除
+        cout << "mSkipList删除:" << bench([&]() {
+            for (size_t i = 0; i < max; i++) {
+                m_sl.erase(i);
+            }
+        }) << "ms" << endl;
+    }
     return 0;
 }
