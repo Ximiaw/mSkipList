@@ -448,12 +448,82 @@ namespace msl{
         };
     };
 
+    template<typename T,typename... T_D>
+        requires NodeBase<T,T_D...>
+    class basic_iterator{
+    private:
+        T* first_;
+        T* last_;
+        T* ptr_;
+    public:
+        using iterator_category = std::bidirectional_iterator_tag;
+        using value_type = Data<T_D...>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type*;
+        using reference = value_type&;
+        basic_iterator()=delete;
+        explicit basic_iterator(T* first,T* last,T* ptr):first_(first),last_(last),ptr_(ptr){};
+        reference operator*() const{
+            return ptr_->data();
+        };
+        pointer operator->() const{
+            return &ptr_->data();
+        };
+        basic_iterator<T,T_D...>& operator++(){
+            if(ptr_==last_) throw std::runtime_error("overstep the boundary.");
+            ptr_=ptr_->rightIndex[0];
+            return *this;
+        };
+        basic_iterator<T,T_D...> operator++(int){ 
+            basic_iterator<T,T_D...> old{first_,last_,ptr_};
+            if(ptr_==last_) throw std::runtime_error("overstep the boundary.");
+            ptr_=ptr_->rightIndex[0];
+            return old; 
+        };
+        basic_iterator<T,T_D...>& operator--(){
+            if(ptr_==first_) throw std::runtime_error("overstep the boundary.");
+            ptr_=ptr_->leftIndex[0];
+            return *this; 
+        };
+        basic_iterator<T,T_D...> operator--(int){
+            basic_iterator<T,T_D...> old{first_,last_,ptr_};
+            if(ptr_==first_) throw std::runtime_error("overstep the boundary.");
+            ptr_=ptr_->leftIndex[0];
+            return old; 
+        };
+        bool operator==(const basic_iterator<T,T_D...>& other) const{ 
+            return ptr_==other.ptr_;
+        };
+        bool operator!=(const basic_iterator<T,T_D...>& other) const{
+            return ptr_!=other.ptr_;
+        };
+    };
+
+    template<typename T,typename... T_D>
+        requires NodeBase<T,T_D...>
+    class Range{
+    private:
+        using iterator=basic_iterator<T,T_D...>;
+        iterator begin_;
+        iterator end_;
+    public:
+        Range(iterator begin,iterator end):begin_(begin),end_(end){};
+        iterator begin(){
+            return begin_;
+        };
+        iterator end(){
+            return end_;
+        };
+    };
+
     template<int keyIndex,typename NODE,typename... T_D>
         requires NodeBase<NODE,T_D...>&&(std::semiregular<T_D>&&...)
     class mSkipListBase{
     private:
         NODE* first=nullptr;//不需要手动管理，分配器会管理
         NODE* last=nullptr;
+
+        using iterator=basic_iterator<NODE,T_D...>;
 
         Algorithm<NODE,keyIndex,T_D...> algorithm;
         const int key_index=keyIndex;
@@ -481,6 +551,23 @@ namespace msl{
             return true;
         };
     public:
+        iterator begin(){
+            return iterator{first,last,first->rightIndex[0]};
+        };
+        iterator end(){
+            return iterator{first,last,last};
+        };
+        Range<NODE,T_D...> range(std::tuple_element_t<keyIndex,std::tuple<T_D...>> left,std::tuple_element_t<keyIndex,std::tuple<T_D...>> right){
+            auto ptr=algorithm.find(left);
+            NODE* l=ptr->leftIndex[0];
+            if(!algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,left)){
+                l=ptr;
+                ptr=ptr->rightIndex[0];
+            }
+            auto r=algorithm.find(right);
+            r=r->rightIndex[0];
+            return Range<NODE,T_D...>{iterator{l,r,ptr},iterator{l,r,r}};
+        };
         void insert(T_D... td){
             auto key=std::get<keyIndex>(std::make_tuple(td...));
             NODE* node=algorithm.find(key);//会返回应插入位置的左边节点，或者有着这个key的节点

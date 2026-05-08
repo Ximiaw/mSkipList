@@ -12,3 +12,6 @@ add_executable(mSkipList
 add_executable(mSkipList
     "test1.cpp"
 )
+add_executable(mSkipList
+    "test2.cpp"
+)

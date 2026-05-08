@@ -12,7 +12,9 @@
 - **自定义内存分配器**：内置内存池 + 自由列表，减少频繁分配开销
 - **可调的索引参数**：支持自定义 gap（索引间隔）和 max_deep（最大层数）
 - **哨兵节点设计**：通过首尾哨兵简化边界条件处理
-- **mArray 索引存储优化**：采用栈数组 + 后备堆 vector 的混合结构，减少小索引场景下的堆分配开销（arrSize可调优）
+- **mArray 索引存储优化**：采用栈数组 + 后备堆 vector 的混合结构，减少小索引场景下的堆分配开销
+- **STL 风格迭代器**：提供 `begin()` / `end()` 双向迭代器，支持范围遍历
+- **范围查询（Range）**：支持按主键范围返回子区间迭代器，用于区间遍历
 
 ## 编译要求
 
@@ -22,7 +24,7 @@
 ## 快速开始
 
 ```cpp
-#include "mSkipList.hpp"
+#include "mSkipList.h"
 #include <iostream>
 #include <string>
 
@@ -47,6 +49,17 @@ int main() {
     // 检查存在性
     if (list.contain(2)) {
         std::cout << "包含 ID=2" << std::endl;
+    }
+
+    // 范围遍历（通过迭代器）
+    for (auto it = list.begin(); it != list.end(); ++it) {
+        auto& data = *it;
+        std::cout << std::get<0>(data.data()) << std::endl;
+    }
+
+    // 范围查询：遍历主键在 [1, 3] 闭区间内的所有节点
+    for (auto& data : list.range(1, 3)) {
+        std::cout << std::get<1>(data.data()) << std::endl;
     }
 
     // 删除
@@ -110,6 +123,8 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | `get<Type>(key, field_index)` | 按主键查询指定字段的引用 |
 | `erase(key)` | 删除指定主键的节点 |
 | `contain(key)` | 判断是否包含指定主键 |
+| `begin()` / `end()` | 返回首尾迭代器，支持范围遍历 |
+| `range(left, right)` | 按主键范围返回子区间迭代器（`[left, right]` 闭区间） |
 | `size()` | 返回当前节点数 |
 | `get_deep()` | 返回当前跳表层数 |
 | `max_deep()` / `set_max_deep(n)` | 获取/设置最大层数限制 |
@@ -118,7 +133,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 
 ## 测试
 
-项目包含两组测试：
+项目包含三组测试：
 
 ### 功能测试（test1.cpp）
 覆盖 9 大测试组、59 个测试用例：
@@ -134,8 +149,29 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 - 跨类型字段组合
 
 ```bash
-g++ -std=c++20 mSkipList.hpp test1.cpp -O3 -o test && ./test
+g++ -std=c++20 mSkipList.h test1.cpp -O3 -o test && ./test
 # 59/59 通过
+```
+
+### 迭代器测试（test2.cpp）
+覆盖 12 个迭代器专项测试用例：
+
+- 正向遍历（前缀 `++`）
+- 后缀递增语义（`it++`）
+- 反向遍历（前缀 `--`）
+- 后缀递减语义（`it--`）
+- 解引用（`*`）与箭头（`->`）操作符
+- 相等（`==`）与不等（`!=`）比较
+- 越界异常安全性（`++end()`、`--begin()` 均抛异常）
+- 范围 `for` 循环（基于 `begin/end`）
+- 子区间 `range()` 迭代（闭区间遍历）
+- 单元素表迭代
+- 空表迭代（`begin == end`）
+- 键值更新后的迭代器可见性
+
+```bash
+g++ -std=c++20 mSkipList.h test2.cpp -O3 -o test2 && ./test2
+# 12/12 通过
 ```
 
 ### 性能测试（test.cpp）
@@ -165,6 +201,7 @@ g++ -std=c++20 mSkipList.hpp test1.cpp -O3 -o test && ./test
 - **索引构建策略**：不同于传统跳表的随机提升，采用确定性间隔策略（每 `gap` 个节点提升一层），保证索引结构的稳定性
 - **动态索引维护**：插入时自底向上冒泡构建索引，删除时智能维护相邻节点连接关系
 - **数据存储**：使用 `std::tuple` 存储多字段数据，通过指针数组实现按索引快速访问各字段
+- **索引存储优化（mArray）**：跳表节点索引层数通常较少，使用栈上固定数组（默认 5 个）存储索引，超出后回退到堆 vector，显著减少小层数节点的内存占用与堆分配开销
 - **内存管理**：预分配内存池减少系统调用，自由列表回收已删除节点实现复用
 
 ## 许可证
