@@ -460,7 +460,7 @@ namespace msl{
         friend class basic_iterator<T,keyIndex,T_D...>;
     public:
         View(Data<T_D...>* data):data_(data){};
-        std::tuple<T_D...> data(){
+        const std::tuple<T_D...>& data(){
             return data_->data();
         };
         template<typename RT>
