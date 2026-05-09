@@ -16,6 +16,10 @@
 - **STL 风格迭代器**：提供 `begin()` / `end()` 双向迭代器，支持范围遍历
 - **范围查询（Range）**：支持按主键范围返回子区间迭代器，用于区间遍历
 
+## 注意
+- 若使用迭代器，使用key通过erase(key)删除当前迭代器指向的节点后，迭代器解引用属于未定义行为
+- 迭代返回其内部变量view，如果需要请通过值拷贝持有，以在迭代器移动后仍然指向旧节点数据
+
 ## 编译要求
 
 - 支持 C++20 的编译器（仅测试了GCC 13+）
@@ -53,12 +57,12 @@ int main() {
 
     // 范围遍历（通过迭代器）
     for (auto it = list.begin(); it != list.end(); ++it) {
-        auto& data = *it;
+        auto data = *it;
         std::cout << std::get<0>(data.data()) << std::endl;
     }
 
     // 范围查询：遍历主键在 [1, 3] 闭区间内的所有节点
-    for (auto& data : list.range(1, 3)) {
+    for (auto data : list.range(1, 3)) {
         std::cout << std::get<1>(data.data()) << std::endl;
     }
 
@@ -121,7 +125,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 |------|------|
 | `insert(T_D... args)` | 插入数据；若主键已存在则覆盖 |
 | `get<Type>(key, field_index)` | 按主键查询指定字段的引用 |
-| `erase(key)`/`erase(iterator)` | 删除指定主键的节点 |
+| `erase(key)`/`erase(it)` | 删除指定主键的节点 |
 | `contain(key)` | 判断是否包含指定主键 |
 | `begin()` / `end()` | 返回首尾迭代器，支持范围遍历 |
 | `range(left, right)` | 按主键范围返回子区间迭代器（`[left, right]` 闭区间） |
@@ -152,22 +156,21 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 ```
 
 ### 迭代器测试（test1.cpp）
-覆盖 12 个迭代器专项测试用例：
+覆盖 11 个迭代器专项测试用例：
 
-- 正向遍历（前缀 `++`）
-- 后缀递增语义（`it++`）
-- 反向遍历（前缀 `--`）
-- 后缀递减语义（`it--`）
-- 解引用（`*`）与箭头（`->`）操作符
-- 相等（`==`）与不等（`!=`）比较
-- 越界异常安全性（`++end()`、`--begin()` 均抛异常）
-- 范围 `for` 循环（基于 `begin/end`）
-- 子区间 `range()` 迭代（闭区间遍历）
-- 单元素表迭代
-- 空表迭代（`begin == end`）
-- 键值更新后的迭代器可见性
+- 正向遍历（`operator*`、`operator++`）
+- 反向遍历（`operator--`）
+- 范围 `for` 循环（C++11 语法，值传递）
+- 前置 `++` 与后置 `++` 语义区别
+- 前置 `--` 与后置 `--` 语义区别
+- 迭代器比较运算符（`==` 与 `!=`）
+- 越界访问异常安全性（`++end()`、`--begin()`、`(end)++` 均抛异常）
+- 范围查询迭代（`range(left, right)` 闭区间）
+- 空表迭代行为（`begin == end`）
+- 基于迭代器的删除（`erase`）
+- 迭代器标签验证（`bidirectional_iterator_tag`）
 ```
-# 12/12 通过
+# 11/11 通过
 ```
 
 ### 性能测试（test2.cpp）
