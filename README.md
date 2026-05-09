@@ -121,7 +121,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 |------|------|
 | `insert(T_D... args)` | 插入数据；若主键已存在则覆盖 |
 | `get<Type>(key, field_index)` | 按主键查询指定字段的引用 |
-| `erase(key)` | 删除指定主键的节点 |
+| `erase(key)`/`erase(iterator)` | 删除指定主键的节点 |
 | `contain(key)` | 判断是否包含指定主键 |
 | `begin()` / `end()` | 返回首尾迭代器，支持范围遍历 |
 | `range(left, right)` | 按主键范围返回子区间迭代器（`[left, right]` 闭区间） |

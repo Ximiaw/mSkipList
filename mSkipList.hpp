@@ -448,63 +448,86 @@ namespace msl{
             return allocator_ptrs.back()+allocator_index-1;
         };
     };
-
-    template<typename T,typename... T_D>
+    
+    template<typename T,int keyIndex,typename... T_D>
         requires NodeBase<T,T_D...>
     class basic_iterator{
-    private:
-        T* first_;
-        T* last_;
-        T* ptr_;
     public:
+    struct View
+    {
+    private:
+        Data<T_D...>* data_;
+        friend class basic_iterator<T,keyIndex,T_D...>;
+    public:
+        View(Data<T_D...>* data):data_(data){};
+        std::tuple<T_D...> data(){
+            return data_->data();
+        };
+        template<typename RT>
+        RT& ref(int i){
+            if(i==keyIndex) throw std::runtime_error("I don't think you need the key.");
+            return data_->template ref<RT>(i);
+        };
+    };
+
+    private:
+    T* first_;
+    T* last_;
+    T* ptr_;
+    View view;
+        
+    public:
+        using iterator = basic_iterator<T,keyIndex,T_D...>;
         using iterator_category = std::bidirectional_iterator_tag;
-        using value_type = Data<T_D...>;
+        using value_type = View;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type*;
         using reference = value_type&;
         basic_iterator()=delete;
-        explicit basic_iterator(T* first,T* last,T* ptr):first_(first),last_(last),ptr_(ptr){};
-        reference operator*() const{
-            return ptr_->data();
+        explicit basic_iterator(T* first,T* last,T* ptr):first_(first),last_(last),ptr_(ptr),view(&ptr->data()){};
+        reference operator*(){
+            view.data_=&ptr_->data();
+            return view;
         };
-        pointer operator->() const{
-            return &ptr_->data();
+        pointer operator->(){
+            view.data_=&ptr_->data();
+            return &view;
         };
-        basic_iterator<T,T_D...>& operator++(){
+        iterator& operator++(){
             if(ptr_==last_) throw std::runtime_error("overstep the boundary.");
             ptr_=ptr_->rightIndex[0];
             return *this;
         };
-        basic_iterator<T,T_D...> operator++(int){ 
-            basic_iterator<T,T_D...> old{first_,last_,ptr_};
+        iterator operator++(int){ 
+            iterator old{first_,last_,ptr_};
             if(ptr_==last_) throw std::runtime_error("overstep the boundary.");
             ptr_=ptr_->rightIndex[0];
             return old; 
         };
-        basic_iterator<T,T_D...>& operator--(){
-            if(ptr_==first_) throw std::runtime_error("overstep the boundary.");
+        iterator& operator--(){
+            if(ptr_==first_||ptr_->leftIndex[0]==first_) throw std::runtime_error("overstep the boundary.");
             ptr_=ptr_->leftIndex[0];
             return *this; 
         };
-        basic_iterator<T,T_D...> operator--(int){
-            basic_iterator<T,T_D...> old{first_,last_,ptr_};
-            if(ptr_==first_) throw std::runtime_error("overstep the boundary.");
+        iterator operator--(int){
+            iterator old{first_,last_,ptr_};
+            if(ptr_==first_||ptr_->leftIndex[0]==first_) throw std::runtime_error("overstep the boundary.");
             ptr_=ptr_->leftIndex[0];
             return old; 
         };
-        bool operator==(const basic_iterator<T,T_D...>& other) const{ 
+        bool operator==(const iterator& other) const{ 
             return ptr_==other.ptr_;
         };
-        bool operator!=(const basic_iterator<T,T_D...>& other) const{
+        bool operator!=(const iterator& other) const{
             return ptr_!=other.ptr_;
         };
     };
 
-    template<typename T,typename... T_D>
+    template<typename T,int keyIndex,typename... T_D>
         requires NodeBase<T,T_D...>
     class Range{
     private:
-        using iterator=basic_iterator<T,T_D...>;
+        using iterator=basic_iterator<T,keyIndex,T_D...>;
         iterator begin_;
         iterator end_;
     public:
@@ -524,7 +547,7 @@ namespace msl{
         NODE* first=nullptr;//不需要手动管理，分配器会管理
         NODE* last=nullptr;
 
-        using iterator=basic_iterator<NODE,T_D...>;
+        using iterator=basic_iterator<NODE,keyIndex,T_D...>;
 
         Algorithm<NODE,keyIndex,T_D...> algorithm;
         const int key_index=keyIndex;
@@ -558,7 +581,7 @@ namespace msl{
         iterator end(){
             return iterator{first,last,last};
         };
-        Range<NODE,T_D...> range(std::tuple_element_t<keyIndex,std::tuple<T_D...>> left,std::tuple_element_t<keyIndex,std::tuple<T_D...>> right){
+        Range<NODE,keyIndex,T_D...> range(std::tuple_element_t<keyIndex,std::tuple<T_D...>> left,std::tuple_element_t<keyIndex,std::tuple<T_D...>> right){
             auto ptr=algorithm.find(left);
             NODE* l=ptr->leftIndex[0];
             if(!algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,left)){
@@ -567,7 +590,7 @@ namespace msl{
             }
             auto r=algorithm.find(right);
             r=r->rightIndex[0];
-            return Range<NODE,T_D...>{iterator{l,r,ptr},iterator{l,r,r}};
+            return Range<NODE,keyIndex,T_D...>{iterator{l,r,ptr},iterator{l,r,r}};
         };
         void insert(T_D... td){
             auto key=std::get<keyIndex>(std::make_tuple(td...));
@@ -596,6 +619,11 @@ namespace msl{
                 allocator.del_node(node);
                 --length;
             }
+        };
+        iterator erase(iterator& it){
+            auto next=it++;
+            erase(std::get<keyIndex>(next->data()));
+            return it;
         };
         long long size(){
             return length;
