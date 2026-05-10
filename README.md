@@ -1,31 +1,32 @@
 # mSkipList
+[English](README.md) | [中文](README_zh.md)
 
-一个基于 C++20 实现的通用跳表（Skip List）数据结构，支持多字段数据存储、任意字段作为主键、以及自定义内存分配策略。
+A generic Skip List data structure implemented in C++20, supporting multi-field data storage, arbitrary field as primary key, and custom memory allocation strategies.
 
-## 特性
+## Features
 
-- **Header-only**：单头文件 `mSkipList.hpp`，包含即可用
-- **C++20 现代语法**：使用 Concepts、Requires 约束、折叠表达式等
-- **多字段数据支持**：通过可变参数模板存储任意类型、任意数量的字段
-- **灵活的主键选择**：可通过模板参数指定任意字段作为排序和查找主键
-- **重复键更新机制**：插入已存在的 key 时自动覆盖数据，而非新增节点
-- **自定义内存分配器**：内置内存池 + 自由列表，减少频繁分配开销
-- **可调的索引参数**：支持自定义 gap（索引间隔）和 max_deep（最大层数）
-- **哨兵节点设计**：通过首尾哨兵简化边界条件处理
-- **mArray 索引存储优化**：采用栈数组 + 后备堆 vector 的混合结构，减少小索引场景下的堆分配开销
-- **STL 风格迭代器**：提供 `begin()` / `end()` 双向迭代器，支持范围遍历
-- **范围查询（Range）**：支持按主键范围返回子区间迭代器，用于区间遍历
+- **Header-only**: Single header file `mSkipList.hpp` — include and use
+- **Modern C++20 syntax**: Utilizes Concepts, Requires clauses, fold expressions, etc.
+- **Multi-field data support**: Store any number of fields of any type via variadic templates
+- **Flexible primary key selection**: Designate any field as the sorting and lookup key through template parameters
+- **Duplicate key update mechanism**: Automatically overwrites existing data when inserting a duplicate key, instead of creating a new node
+- **Custom allocator**: Built-in memory pool + free list to reduce frequent allocation overhead
+- **Tunable indexing parameters**: Supports custom `gap` (index interval) and `max_deep` (maximum level)
+- **Sentinel node design**: Simplifies boundary condition handling via head and tail sentinels
+- **mArray index storage optimization**: Uses a hybrid structure of stack array + fallback heap vector to reduce heap allocation overhead in low-index scenarios
+- **STL-style iterators**: Provides `begin()` / `end()` bidirectional iterators supporting range traversal
+- **Range query (Range)**: Supports returning sub-range iterators by primary key range for interval traversal
 
-## 注意
-- 若使用迭代器，使用key通过erase(key)删除当前迭代器指向的节点后，迭代器解引用属于未定义行为
-- 迭代返回其内部变量view，如果需要请通过值拷贝持有，以在迭代器移动后仍然指向旧节点数据
+## Notes
+- If using iterators, erasing the node pointed to by the current iterator via `erase(key)` and then dereferencing the iterator results in undefined behavior
+- Iterators return an internal `view` variable; if needed, hold it by value copy so it still points to the old node data after the iterator moves
 
-## 编译要求
+## Compilation Requirements
 
-- 支持 C++20 的编译器（仅测试了GCC 13+）
-- 无第三方依赖
+- A compiler supporting C++20 (only tested with GCC 13+)
+- No third-party dependencies
 
-## 快速开始
+## Quick Start
 
 ```cpp
 #include "mSkipList.hpp"
@@ -35,194 +36,194 @@
 using namespace msl;
 
 int main() {
-    // 以第 0 个字段（int）作为主键，存储 <id, name, score>
+    // Use field 0 (int) as primary key, store <id, name, score>
     auto list = make_mSkipList<0, int, std::string, double>();
 
-    // 插入数据
+    // Insert data
     list.insert(1, "Alice", 95.5);
     list.insert(2, "Bob", 87.0);
     list.insert(3, "Charlie", 92.3);
 
-    // 查询：get<字段类型>(key, 字段索引)
+    // Query: get<field_type>(key, field_index)
     const std::string& name = list.get<std::string>(1, 1);
-    std::cout << "ID=1 的名字: " << name << std::endl;  // Alice
+    std::cout << "Name for ID=1: " << name << std::endl;  // Alice
 
-    // 重复 key 会覆盖
+    // Duplicate key will overwrite
     list.insert(1, "AliceUpdated", 98.0);
 
-    // 检查存在性
+    // Check existence
     if (list.contain(2)) {
-        std::cout << "包含 ID=2" << std::endl;
+        std::cout << "Contains ID=2" << std::endl;
     }
 
-    // 范围遍历（通过迭代器）
+    // Range traversal (via iterators)
     for (auto it = list.begin(); it != list.end(); ++it) {
         auto data = *it;
         std::cout << std::get<0>(data.data()) << std::endl;
     }
 
-    // 范围查询：遍历主键在 [1, 3] 闭区间内的所有节点
+    // Range query: iterate all nodes with primary key in the [1, 3] closed interval
     for (auto data : list.range(1, 3)) {
         std::cout << std::get<1>(data.data()) << std::endl;
     }
 
-    // 删除
+    // Delete
     list.erase(2);
-    std::cout << "当前大小: " << list.size() << std::endl;  // 2
+    std::cout << "Current size: " << list.size() << std::endl;  // 2
 
     return 0;
 }
 ```
 
-编译：
+Compile:
 ```bash
 g++ -std=c++20 main.cpp -O3 -o main
 ```
 
-## 构造方式
+## Construction Methods
 
-### 工厂函数（推荐）
+### Factory Function (Recommended)
 ```cpp
 auto list = make_mSkipList<0, int, std::string, double>();
 ```
 
-### 显式构造
+### Explicit Construction
 ```cpp
-// 使用默认值构造哨兵节点
+// Construct sentinel nodes with default values
 mSkipList<0, int, std::string, double> list(0, "", 0.0);
 ```
 
-### 自定义参数
+### Custom Parameters
 ```cpp
-// 参数：内存池大小, gap, max_deep, 哨兵初始值...
+// Parameters: memory pool size, gap, max_deep, sentinel initial values...
 mSkipList<0, int, std::string> list(1024, 2, 5, 0, "");
 ```
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `allocate_size` | 内存池块大小 | 4096 |
-| `gap` | 相邻索引节点之间间隔的数据节点数 | 3 |
-| `max_deep` | 跳表最大层数（-1 表示不限制） | -1 |
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `allocate_size` | Memory pool block size | 4096 |
+| `gap` | Number of data nodes between adjacent index nodes | 3 |
+| `max_deep` | Maximum skip list level (-1 for unlimited) | -1 |
 
-## 非首字段主键
+## Non-First-Field Primary Key
 
-可以通过模板参数 `keyIndex` 指定任意字段作为主键：
+You can specify any field as the primary key through the `keyIndex` template parameter:
 
 ```cpp
-// 以第 1 个字段（std::string）作为主键
+// Use field 1 (std::string) as primary key
 mSkipList<1, int, std::string, double> list(0, "", 0.0);
 
 list.insert(101, "Alice", 95.0);
 list.insert(102, "Bob", 88.5);
 
-// 通过字符串主键查询
+// Query via string primary key
 const int& id = list.get<int>(std::string("Alice"), 0);
 ```
 
-## API 参考
+## API Reference
 
-| 方法 | 说明 |
-|------|------|
-| `insert(T_D... args)` | 插入数据；若主键已存在则覆盖 |
-| `get<Type>(key, field_index)` | 按主键查询指定字段的引用 |
-| `erase(key)`/`erase(it)` | 删除指定主键的节点 |
-| `contain(key)` | 判断是否包含指定主键 |
-| `begin()` / `end()` | 返回首尾迭代器，支持范围遍历 |
-| `range(left, right)` | 按主键范围返回子区间迭代器（`[left, right]` 闭区间） |
-| `size()` | 返回当前节点数 |
-| `get_deep()` | 返回当前跳表层数 |
-| `max_deep()` / `set_max_deep(n)` | 获取/设置最大层数限制 |
-| `gap()` / `set_gap(n)` | 获取/设置索引间隔 |
-| `anew_build()` | 重建索引（修改参数后调用） |
+| Method | Description |
+|--------|-------------|
+| `insert(T_D... args)` | Insert data; overwrites if primary key already exists |
+| `get<Type>(key, field_index)` | Query a reference to the specified field by primary key |
+| `erase(key)` / `erase(it)` | Delete node with the specified primary key |
+| `contain(key)` | Check whether the specified primary key exists |
+| `begin()` / `end()` | Return head and tail iterators, supporting range traversal |
+| `range(left, right)` | Return sub-range iterators by primary key range (`[left, right]` closed interval) |
+| `size()` | Return current node count |
+| `get_deep()` | Return current skip list level count |
+| `max_deep()` / `set_max_deep(n)` | Get/set maximum level limit |
+| `gap()` / `set_gap(n)` | Get/set index interval |
+| `anew_build()` | Rebuild index (call after modifying parameters) |
 
-## 测试
+## Tests
 
-项目包含三组测试(O3优化)：
+The project includes three test suites (O3 optimized):
 
-### 功能测试（test0.cpp）
-覆盖 9 大测试组、59 个测试用例：
+### Functional Tests (test0.cpp)
+Covers 9 test groups, 59 test cases:
 
-- 构造与工厂函数
-- 基础增删改查（CRUD）
-- 重复键更新机制
-- 边界条件与异常行为
-- 跳表索引结构参数验证
-- 大量数据随机操作与正确性（3000 节点）
-- 非首字段作为主键
-- 高强度交替操作稳定性（50 轮 x 100 节点）
-- 跨类型字段组合
+- Construction and factory functions
+- Basic CRUD operations
+- Duplicate key update mechanism
+- Boundary conditions and exceptional behavior
+- Skip list index structure parameter verification
+- Large-scale random operations and correctness (3000 nodes)
+- Non-first-field as primary key
+- High-intensity alternating operation stability (50 rounds x 100 nodes)
+- Cross-type field combinations
 ```
-# 59/59 通过
-```
-
-### 迭代器测试（test1.cpp）
-覆盖 11 个迭代器专项测试用例：
-
-- 正向遍历（`operator*`、`operator++`）
-- 反向遍历（`operator--`）
-- 范围 `for` 循环（C++11 语法，值传递）
-- 前置 `++` 与后置 `++` 语义区别
-- 前置 `--` 与后置 `--` 语义区别
-- 迭代器比较运算符（`==` 与 `!=`）
-- 越界访问异常安全性（`++end()`、`--begin()`、`(end)++` 均抛异常）
-- 范围查询迭代（`range(left, right)` 闭区间）
-- 空表迭代行为（`begin == end`）
-- 基于迭代器的删除（`erase`）
-- 迭代器标签验证（`bidirectional_iterator_tag`）
-```
-# 11/11 通过
+# 59/59 passed
 ```
 
-### 性能测试（test2.cpp）
+### Iterator Tests (test1.cpp)
+Covers 11 iterator-specific test cases:
 
-> 环境：GCC 13+，`-O3`，100 万条数据，键值范围 1~50 万，取 5 次运行平均值。  
-> 测试代码见 `test2.cpp`，`std::map` 使用 `find()` 纯查找、`erase()` 纯删除，避免 `operator[]` 的插入副作用。
+- Forward traversal (`operator*`, `operator++`)
+- Backward traversal (`operator--`)
+- Range `for` loop (C++11 syntax, pass-by-value)
+- Prefix `++` vs postfix `++` semantic distinction
+- Prefix `--` vs postfix `--` semantic distinction
+- Iterator comparison operators (`==` and `!=`)
+- Out-of-bounds access exception safety (`++end()`, `--begin()`, `(end)++` all throw exceptions)
+- Range query iteration (`range(left, right)` closed interval)
+- Empty list iteration behavior (`begin == end`)
+- Iterator-based deletion (`erase`)
+- Iterator tag verification (`bidirectional_iterator_tag`)
+```
+# 11/11 passed
+```
 
-| 场景 | 操作 | std::map | mSkipList | 倍数 (跳表/map) |
-|------|------|----------|-----------|-----------------|
-| **随机数据** | 插入 | ~155 ms | ~400 ms | **~2.6×** |
-| | 查找 | ~270 ms | ~395 ms | **~1.5×** |
-| | 删除 | ~55 ms | ~102 ms | **~1.9×** |
-| **顺序数据** | 插入 | ~183 ms | ~177 ms | **~0.97×** ✅ |
-| | 查找 | ~100 ms | ~76 ms | **~0.76×** ✅ |
-| | 删除 | ~57 ms | ~115 ms | **~2.0×** |
+### Performance Tests (test2.cpp)
 
-### 微基准测试（test3.cpp）
+> Environment: GCC 13+, `-O3`, 1 million records, key range 1~500,000, average of 5 runs.  
+> See `test2.cpp` for test code; `std::map` uses `find()` for pure lookup and `erase()` for pure deletion, avoiding the insertion side effect of `operator[]`.
 
-采用独立实例法 + 缓存预热 + 防编译器优化消除的严谨测试方法（test3.cpp），数据规模 50000，默认参数（gap=3, max_deep=-1）：
+| Scenario | Operation | std::map | mSkipList | Ratio (SkipList/map) |
+|----------|-----------|----------|-----------|---------------------|
+| **Random data** | Insert | ~155 ms | ~400 ms | **~2.6x** |
+| | Lookup | ~270 ms | ~395 ms | **~1.5x** |
+| | Delete | ~55 ms | ~102 ms | **~1.9x** |
+| **Sequential data** | Insert | ~183 ms | ~177 ms | **~0.97x** |
+| | Lookup | ~100 ms | ~76 ms | **~0.76x** |
+| | Delete | ~57 ms | ~115 ms | **~2.0x** |
 
-| 操作 | 最小 | 最大 | 平均 | 说明 |
-|------|------|------|------|------|
-| 查询 - 存在键 | 80 ns | 3215 ns | **356 ns** | 随机 key 命中，3000 次采样 |
-| 查询 - 不存在键 | 92 ns | 3472 ns | **116 ns** | 随机 key 未命中，搜索路径更长 |
-| 查询 - 首节点 | 317 ns | - | 317 ns | 最小 key，单次测试 |
-| 查询 - 尾节点 | 458 ns | - | 458 ns | 最大 key，单次测试 |
-| 删除 - 随机键 | 492 ns | 2497 ns | **826 ns** | 独立实例法，60 次采样 |
+### Micro-Benchmarks (test3.cpp)
 
-退化场景（gap=50000, max_deep=1，强制退化为单向链表）：
+Using rigorous test methodology with isolated instances + cache warm-up + compiler optimization elimination prevention (test3.cpp), data scale 50,000, default parameters (gap=3, max_deep=-1):
 
-| 操作 | 最小 | 最大 | 平均 | 说明 |
-|------|------|------|------|------|
-| 查询 - 退化链表 | 146 ns | 114359 ns | **53194 ns** | O(n) 线性扫描 |
-| 删除 - 退化链表 | 423636 ns | 725688 ns | **501384 ns** | O(n) 线性删除 |
+| Operation | Min | Max | Avg | Description |
+|-----------|-----|-----|-----|-------------|
+| Lookup - Existing key | 80 ns | 3215 ns | **356 ns** | Random key hit, 3000 samples |
+| Lookup - Non-existing key | 92 ns | 3472 ns | **116 ns** | Random key miss, longer search path |
+| Lookup - First node | 317 ns | - | 317 ns | Minimum key, single test |
+| Lookup - Last node | 458 ns | - | 458 ns | Maximum key, single test |
+| Delete - Random key | 492 ns | 2497 ns | **826 ns** | Isolated instance method, 60 samples |
 
-## 测试验证
+Degraded scenario (gap=50000, max_deep=1, forced degradation to singly linked list):
 
-| 检查项 | 状态 |
-|--------|------|
-| 功能完整性测试 | 59/59 通过 |
-| AddressSanitizer（内存泄漏检测） | 通过 |
-| 代码覆盖率 | 函数覆盖 95%（114/120）|
+| Operation | Min | Max | Avg | Description |
+|-----------|-----|-----|-----|-------------|
+| Lookup - Degraded list | 146 ns | 114359 ns | **53194 ns** | O(n) linear scan |
+| Delete - Degraded list | 423636 ns | 725688 ns | **501384 ns** | O(n) linear deletion |
 
-## 设计要点
+## Test Verification
 
-- **索引构建策略**：不同于传统跳表的随机提升，采用确定性间隔策略（每 `gap` 个节点提升一层），保证索引结构的稳定性
-- **动态索引维护**：插入时自底向上冒泡构建索引，删除时智能维护相邻节点连接关系
-- **数据存储**：使用 `std::tuple` 存储多字段数据，通过指针数组实现按索引快速访问各字段
-- **索引存储优化（mArray）**：跳表节点索引层数通常较少，使用栈上固定数组（默认 5 个）存储索引，超出后回退到堆 vector，显著减少小层数节点的内存占用与堆分配开销
-- **内存管理**：预分配内存池减少系统调用，自由列表回收已删除节点实现复用
+| Check Item | Status |
+|------------|--------|
+| Functional completeness tests | 59/59 passed |
+| AddressSanitizer (memory leak detection) | Passed |
+| Code coverage | Function coverage 95% (114/120) |
 
-## 许可证
+## Design Highlights
+
+- **Indexing strategy**: Unlike traditional skip lists' random promotion, uses a deterministic interval strategy (promote one level every `gap` nodes) to guarantee index structure stability
+- **Dynamic index maintenance**: Builds indexes bottom-up via bubbling during insertion, intelligently maintains adjacent node connections during deletion
+- **Data storage**: Uses `std::tuple` to store multi-field data, with pointer arrays enabling fast access to each field by index
+- **Index storage optimization (mArray)**: Skip list nodes typically have few levels; uses a fixed-size on-stack array (default 5) to store indexes, falling back to heap vector when exceeded, significantly reducing memory footprint and heap allocation overhead for low-level nodes
+- **Memory management**: Pre-allocated memory pool reduces system calls, free list recycles deleted nodes for reuse
+
+## License
 
 MIT License  
 Copyright (c) 2026 Ximiaw
