@@ -80,6 +80,58 @@ int main() {
 g++ -std=c++20 main.cpp -O3 -o main
 ```
 
+## 自定义结构体主键 + 范围查询
+
+```cpp
+#include "mSkipList.hpp"
+#include <iostream>
+
+using namespace msl;
+using namespace std;
+
+struct task {
+    size_t priority = 0;
+    size_t number = 0;
+    task(size_t p = 0, size_t n = 0) : priority(p), number(n) {};
+
+    bool operator==(const task& other) const {
+        return priority == other.priority && number == other.number;
+    }
+    auto operator<=>(const task& other) const = default;
+};
+
+int main() {
+    auto sl = make_mSkipList<0, task, int>();
+
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 10; j++) {
+            sl.insert(task{i, j}, i + j);
+        }
+    }
+
+    for (auto it : sl.range(task{3, 3}, task{4, 2})) {
+        cout << "优先级：" << get<0>(it.data()).priority
+             << "\t序号：" << get<0>(it.data()).number
+             << "\t任务：" << it.ref<int>(1) << endl;
+    }
+}
+```
+
+输出：
+```
+优先级：3	序号：3	任务：6
+优先级：3	序号：4	任务：7
+优先级：3	序号：5	任务：8
+优先级：3	序号：6	任务：9
+优先级：3	序号：7	任务：10
+优先级：3	序号：8	任务：11
+优先级：3	序号：9	任务：12
+优先级：4	序号：0	任务：4
+优先级：4	序号：1	任务：5
+优先级：4	序号：2	任务：6
+```
+
+
 ## 构造方式
 
 ### 工厂函数（推荐）
