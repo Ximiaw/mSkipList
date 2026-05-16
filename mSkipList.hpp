@@ -625,6 +625,24 @@ namespace msl{
             erase(std::get<keyIndex>(next->data()));
             return it;
         };
+        template<typename Type>
+        const Type& front(int i){
+            if(first->rightIndex[0]==last) throw std::runtime_error("no data");
+            return first->rightIndex[0]->data().template ref<Type>(i);
+        }
+        void pop_front(){
+            if(first->rightIndex[0]==last) throw std::runtime_error("no data");
+            algorithm.delete_build_and_index(first->rightIndex[0]);
+        }
+        template<typename Type>
+        const Type& back(int i){
+            if(last->leftIndex[0]==first) throw std::runtime_error("no data");
+            return last->leftIndex[0]->data().template ref<Type>(i);
+        }
+        void pop_back(){
+            if(last->leftIndex[0]==first) throw std::runtime_error("no data");
+            algorithm.delete_build_and_index(last->leftIndex[0]);
+        }
         long long size(){
             return length;
         };
