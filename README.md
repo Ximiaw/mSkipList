@@ -1,29 +1,29 @@
 # mSkipList
 [English](README.md) | [中文](README_zh.md)
 
-A generic Skip List data structure implemented in C++20, supporting multi-field data storage, any field as the primary key, and custom memory allocation strategies.
+A generic skip list data structure implemented in C++20, supporting multi-field data storage, arbitrary field as primary key, and custom memory allocation strategies.
 
 ## Features
 
-- **Header-only**: Single header file `mSkipList.hpp`, include and use
-- **Modern C++20 syntax**: Uses Concepts, Requires constraints, fold expressions, etc.
+- **Header-only**: Single header file `mSkipList.hpp` — include and use
+- **Modern C++20 syntax**: Uses Concepts, Requires clauses, fold expressions, and more
 - **Multi-field data support**: Stores any type and any number of fields via variadic templates
 - **Flexible primary key selection**: Any field can be specified as the sorting and lookup key via template parameters
 - **Duplicate key update mechanism**: Inserting an existing key automatically overwrites the data instead of creating a new node
-- **Custom allocator**: Built-in memory pool + free list to reduce frequent allocation overhead
+- **Custom memory allocator**: Built-in memory pool + free list to reduce frequent allocation overhead
 - **Tunable index parameters**: Supports custom `gap` (index interval) and `max_deep` (maximum level)
 - **Sentinel node design**: Simplifies boundary condition handling via head and tail sentinels
-- **mArray index storage optimization**: Uses a hybrid structure of stack array + fallback heap vector to reduce heap allocation overhead in small-index scenarios
-- **STL-style iterators**: Provides `begin()` / `end()` bidirectional iterators supporting range traversal
-- **Range query (Range)**: Supports returning sub-range iterators by primary key range for interval traversal
+- **mArray index storage optimization**: Uses a hybrid structure of stack array + fallback heap vector to reduce heap allocation overhead in low-index scenarios
+- **STL-style iterators**: Provides `begin()` / `end()` bidirectional iterators for range traversal
+- **Range queries (Range)**: Supports returning sub-range iterators by primary key range for interval traversal
 
 ## Notes
-- If using iterators, after deleting the node pointed to by the current iterator via `erase(key)` using the key, dereferencing the iterator is undefined behavior
-- Iteration returns an internal `view` variable; if needed, hold it by value copy so that it still points to the old node data after the iterator moves
+- When using iterators, erasing the node pointed to by the current iterator via `erase(key)` and then dereferencing the iterator is undefined behavior
+- Iterators return their internal `view` variable; if needed, hold it by value copy so it still points to the old node data after the iterator moves
 
-## Compilation Requirements
+## Build Requirements
 
-- C++20 compatible compiler (only tested with GCC 13+)
+- A C++20-compatible compiler (only tested on GCC 13+)
 - No third-party dependencies
 
 ## Quick Start
@@ -36,7 +36,7 @@ A generic Skip List data structure implemented in C++20, supporting multi-field 
 using namespace msl;
 
 int main() {
-    // Use field 0 (int) as the primary key, storing <id, name, score>
+    // Use the 0th field (int) as the primary key, storing <id, name, score>
     auto list = make_mSkipList<0, int, std::string, double>();
 
     // Insert data
@@ -56,7 +56,7 @@ int main() {
         std::cout << "Contains ID=2" << std::endl;
     }
 
-    // Range traversal (via iterator)
+    // Range traversal (via iterators)
     for (auto it = list.begin(); it != list.end(); ++it) {
         auto data = *it;
         std::cout << std::get<0>(data.data()) << std::endl;
@@ -67,7 +67,7 @@ int main() {
         std::cout << std::get<1>(data.data()) << std::endl;
     }
 
-    // Delete
+    // Erase
     list.erase(2);
     std::cout << "Current size: " << list.size() << std::endl;  // 2
 
@@ -80,7 +80,7 @@ Compile:
 g++ -std=c++20 main.cpp -O3 -o main
 ```
 
-## Custom Struct as Primary Key + Range Query
+## Custom Struct Key + Range Query
 
 ```cpp
 #include "mSkipList.hpp"
@@ -131,6 +131,7 @@ Priority: 4	Number: 1	Task: 5
 Priority: 4	Number: 2	Task: 6
 ```
 
+
 ## Construction Methods
 
 ### Factory Function (Recommended)
@@ -154,14 +155,14 @@ mSkipList<0, int, std::string> list(1024, 2, 5, 0, "");
 |-----------|-------------|---------|
 | `allocate_size` | Memory pool block size | 4096 |
 | `gap` | Number of data nodes between adjacent index nodes | 3 |
-| `max_deep` | Maximum skip list level (-1 means unlimited) | -1 |
+| `max_deep` | Maximum skip list levels (-1 for unlimited) | -1 |
 
-## Non-First Field as Primary Key
+## Non-first-field Primary Key
 
-Any field can be specified as the primary key via the `keyIndex` template parameter:
+Any field can be designated as the primary key via the `keyIndex` template parameter:
 
 ```cpp
-// Use field 1 (std::string) as the primary key
+// Use the 1st field (std::string) as the primary key
 mSkipList<1, int, std::string, double> list(0, "", 0.0);
 
 list.insert(101, "Alice", 95.0);
@@ -176,20 +177,25 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | Method | Description |
 |--------|-------------|
 | `insert(T_D... args)` | Insert data; overwrites if the primary key already exists |
-| `get<Type>(key, field_index)` | Query reference of specified field by primary key |
-| `erase(key)` / `erase(it)` | Delete node with specified primary key |
-| `contain(key)` | Check if specified primary key exists |
+| `get<Type>(key, field_index)` | Query the reference of a specified field by primary key |
+| `erase(key)` / `erase(it)` | Erase the node with the specified key |
+| `contain(key)` | Check if the specified primary key exists |
 | `begin()` / `end()` | Return head and tail iterators, supporting range traversal |
 | `range(left, right)` | Return sub-range iterators by primary key range (closed interval `[left, right]`) |
-| `size()` | Return current number of nodes |
-| `get_deep()` | Return current skip list level |
-| `max_deep()` / `set_max_deep(n)` | Get / set maximum level limit |
-| `gap()` / `set_gap(n)` | Get / set index interval |
-| `anew_build()` | Rebuild index (call after modifying parameters) |
+| `prefix_to(key)` | Return prefix range from the first node to the specified key |
+| `suffix_from(key)` | Return suffix range from the specified key to the tail node |
+| `front<Type>(field_index)` | Get the specified field of the first node |
+| `back<Type>(field_index)` | Get the specified field of the last node |
+| `pop_front()` / `pop_back()` | Erase the first / last node |
+| `size()` | Return the current number of nodes |
+| `get_deep()` | Return the current skip list level count |
+| `max_deep()` / `set_max_deep(n)` | Get / set the maximum level limit |
+| `gap()` / `set_gap(n)` | Get / set the index interval |
+| `anew_build()` | Rebuild the index (call after modifying parameters) |
 
 ## Tests
 
-The project includes three sets of tests (O3 optimized):
+The project includes three test suites (O3 optimized):
 
 ### Functional Test (test0.cpp)
 Covers 9 major test groups, 59 test cases:
@@ -208,70 +214,83 @@ Covers 9 major test groups, 59 test cases:
 ```
 
 ### Iterator Test (test1.cpp)
-Covers 11 iterator-specific test cases:
 
-- Forward traversal (`operator*`, `operator++`)
-- Backward traversal (`operator--`)
-- Range `for` loop (C++11 syntax, value passing)
-- Pre-increment `++` and post-increment `++` semantic difference
-- Pre-decrement `--` and post-decrement `--` semantic difference
-- Iterator comparison operators (`==` and `!=`)
-- Out-of-bounds access exception safety (`++end()`, `--begin()`, `(end)++` all throw exceptions)
-- Range query iteration (`range(left, right)` closed interval)
-- Empty list iterator behavior (`begin == end`)
-- Iterator-based deletion (`erase`)
-- Iterator tag verification (`bidirectional_iterator_tag`)
+Covers **19** iterator-specific test cases:
+
+| # | Test Item | Description |
+|---|-----------|-------------|
+| 1 | Forward traversal | `operator*` dereferencing and prefix `operator++` |
+| 2 | Reverse traversal | `operator--` and `operator->` |
+| 3 | Range-for | C++11 syntax sugar, pass-by-value View |
+| 4 | Prefix++ vs Postfix++ | Semantic difference validation (return value vs iterator position) |
+| 5 | Prefix-- vs Postfix-- | Semantic difference validation (return value vs iterator position) |
+| 6 | Comparison operators | `==` and `!=` correctness |
+| 7 | Out-of-bounds exception safety | `++end()`, `--begin()`, `(end)++`, `(begin)--` all throw exceptions |
+| 8 | Range query iteration | `range(left, right)` closed interval traversal |
+| 9 | Empty list iteration | `begin == end`, zero traversals on empty list |
+| 10 | Iterator erase | `erase(it)` returns the next valid iterator |
+| 11 | Iterator tags | `bidirectional_iterator_tag` and `iterator_traits` validation |
+| 12 | `->` and `*` consistency | `it->data()` and `(*it).data()` return the same object |
+| 13 | `View::ref()` | Modify non-key fields by reference and persist |
+| 14 | `--end()` reverse traversal | Complete reverse traversal starting from the predecessor of the tail sentinel |
+| 15 | Iterator copy | Independent advancement after copy construction/assignment |
+| 16 | `front` / `back` | First and last node field access |
+| 17 | `prefix_to(key)` | Prefix range query (from first node to specified key) |
+| 18 | `suffix_from(key)` | Suffix range query (from specified key to tail node) |
+| 19 | `pop_front` / `pop_back` | First/last node erasure, node recycling, and size update |
+
 ```
-# 11/11 passed
+# 19/19 passed
 ```
 
 ### Performance Test (test2.cpp)
 
-> Environment: GCC 13+, `-O3`, 1 million data entries, key range 1~500,000, averaged over 5 runs.  
-> Test code see `test2.cpp`, `std::map` uses `find()` for pure lookup and `erase()` for pure deletion, avoiding the insertion side effect of `operator[]`.
+> Environment: GCC 13+, `-O3`, 1 million data entries, key range 1~500,000, average of 5 runs.  
+> See `test2.cpp` for test code; `std::map` uses `find()` for pure lookup and `erase()` for pure deletion, avoiding the insertion side effect of `operator[]`.
 
-| Scenario | Operation | std::map | mSkipList | Ratio (Skip List / map) |
-|----------|-----------|----------|-----------|------------------------|
-| **Random Data** | Insert | ~155 ms | ~400 ms | **~2.6x** |
-| | Lookup | ~270 ms | ~395 ms | **~1.5x** |
-| | Delete | ~55 ms | ~102 ms | **~1.9x** |
-| **Sequential Data** | Insert | ~183 ms | ~177 ms | **~0.97x** ✅ |
-| | Lookup | ~100 ms | ~76 ms | **~0.76x** ✅ |
-| | Delete | ~57 ms | ~115 ms | **~2.0x** |
+| Scenario | Operation | std::map | mSkipList | Multiple (Skip List / Map) |
+|----------|-----------|----------|-----------|---------------------------|
+| **Random data** | Insert | ~155 ms | ~400 ms | **~2.6×** |
+| | Lookup | ~270 ms | ~395 ms | **~1.5×** |
+| | Erase | ~55 ms | ~102 ms | **~1.9×** |
+| **Sequential data** | Insert | ~183 ms | ~177 ms | **~0.97×** ✅ |
+| | Lookup | ~100 ms | ~76 ms | **~0.76×** ✅ |
+| | Erase | ~57 ms | ~115 ms | **~2.0×** |
 
-### Micro Benchmark (test3.cpp)
+### Micro-Benchmark (test3.cpp)
 
-Using rigorous testing methodology with independent instance method + cache warm-up + anti-compiler-optimization-elimination (test3.cpp), data scale 50000, default parameters (gap=3, max_deep=-1):
+Uses rigorous testing methodology with isolated instances + cache warm-up + compiler optimization elimination prevention (test3.cpp), data scale 50,000, default parameters (gap=3, max_deep=-1):
 
-| Operation | Min | Max | Avg | Description |
-|-----------|-----|-----|-----|-------------|
-| Lookup - Existing Key | 80 ns | 3215 ns | **356 ns** | Random key hit, 3000 samples |
-| Lookup - Non-existent Key | 92 ns | 3472 ns | **116 ns** | Random key miss, longer search path |
-| Lookup - First Node | 317 ns | - | 317 ns | Minimum key, single test |
-| Lookup - Last Node | 458 ns | - | 458 ns | Maximum key, single test |
-| Delete - Random Key | 492 ns | 2497 ns | **826 ns** | Independent instance method, 60 samples |
+| Operation | Min | Max | Average | Description |
+|-----------|-----|-----|---------|-------------|
+| Lookup - Existing key | 80 ns | 3215 ns | **356 ns** | Random key hit, 3000 samples |
+| Lookup - Non-existing key | 92 ns | 3472 ns | **116 ns** | Random key miss, longer search path |
+| Lookup - First node | 317 ns | - | 317 ns | Minimum key, single test |
+| Lookup - Last node | 458 ns | - | 458 ns | Maximum key, single test |
+| Erase - Random key | 492 ns | 2497 ns | **826 ns** | Isolated instance method, 60 samples |
 
-Degraded scenario (gap=50000, max_deep=1, forced degradation to singly linked list):
+Degradation scenario (gap=50000, max_deep=1, forced degradation to singly linked list):
 
-| Operation | Min | Max | Avg | Description |
-|-----------|-----|-----|-----|-------------|
-| Lookup - Degraded List | 146 ns | 114359 ns | **53194 ns** | O(n) linear scan |
-| Delete - Degraded List | 423636 ns | 725688 ns | **501384 ns** | O(n) linear deletion |
+| Operation | Min | Max | Average | Description |
+|-----------|-----|-----|---------|-------------|
+| Lookup - Degraded list | 146 ns | 114359 ns | **53194 ns** | O(n) linear scan |
+| Erase - Degraded list | 423636 ns | 725688 ns | **501384 ns** | O(n) linear deletion |
 
 ## Test Verification
 
 | Check Item | Status |
 |------------|--------|
-| Functional completeness test | 59/59 passed |
+| Functional completeness tests | 59/59 passed |
+| Iterator-specific tests | 19/19 passed |
 | AddressSanitizer (memory leak detection) | Passed |
 | Code coverage | Function coverage 95% (114/120) |
 
 ## Design Highlights
 
-- **Index construction strategy**: Unlike traditional skip list random promotion, adopts a deterministic interval strategy (promote one level every `gap` nodes), ensuring index structure stability
-- **Dynamic index maintenance**: Bottom-up bubble index construction during insertion, intelligent maintenance of adjacent node connections during deletion
-- **Data storage**: Uses `std::tuple` to store multi-field data, with pointer arrays enabling fast access to each field by index
-- **Index storage optimization (mArray)**: Skip list node index levels are usually small, using on-stack fixed array (default 5) to store indexes, falling back to heap vector when exceeded, significantly reducing memory footprint and heap allocation overhead for small-level nodes
+- **Index construction strategy**: Unlike traditional skip list random promotion, uses a deterministic interval strategy (promote one level every `gap` nodes), ensuring index structure stability
+- **Dynamic index maintenance**: Bottom-up bubble-up index construction during insertion, intelligent maintenance of adjacent node connections during deletion
+- **Data storage**: Uses `std::tuple` to store multi-field data, with pointer arrays for fast field access by index
+- **Index storage optimization (mArray)**: Skip list nodes typically have few levels; uses a fixed-size on-stack array (default 5) for index storage, falling back to heap vector when exceeded, significantly reducing memory footprint and heap allocation overhead for low-level nodes
 - **Memory management**: Pre-allocated memory pool reduces system calls, free list recycles deleted nodes for reuse
 
 ## License

@@ -651,7 +651,10 @@ namespace msl{
         };
         void pop_front(){
             if(first->rightIndex[0]==last) throw std::runtime_error("no data");
-            algorithm.delete_build_and_index(first->rightIndex[0]);
+            auto ptr = first->rightIndex[0];
+            algorithm.delete_build_and_index(ptr);
+            allocator.del_node(ptr);
+            --length;
         };
         template<typename Type>
         const Type& back(int i){
@@ -660,7 +663,10 @@ namespace msl{
         };
         void pop_back(){
             if(last->leftIndex[0]==first) throw std::runtime_error("no data");
-            algorithm.delete_build_and_index(last->leftIndex[0]);
+            auto ptr = last->leftIndex[0];
+            algorithm.delete_build_and_index(ptr);
+            allocator.del_node(ptr);
+            --length;
         };
         long long size(){
             return length;

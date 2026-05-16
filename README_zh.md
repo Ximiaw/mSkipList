@@ -182,6 +182,11 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | `contain(key)` | 判断是否包含指定主键 |
 | `begin()` / `end()` | 返回首尾迭代器，支持范围遍历 |
 | `range(left, right)` | 按主键范围返回子区间迭代器（`[left, right]` 闭区间） |
+| `prefix_to(key)` | 返回从首节点到指定 key 的前缀范围 |
+| `suffix_from(key)` | 返回从指定 key 到尾节点的后缀范围 |
+| `front<Type>(field_index)` | 获取第一个节点的指定字段 |
+| `back<Type>(field_index)` | 获取最后一个节点的指定字段 |
+| `pop_front()` / `pop_back()` | 删除首 / 尾节点 |
 | `size()` | 返回当前节点数 |
 | `get_deep()` | 返回当前跳表层数 |
 | `max_deep()` / `set_max_deep(n)` | 获取/设置最大层数限制 |
@@ -209,21 +214,33 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 ```
 
 ### 迭代器测试（test1.cpp）
-覆盖 11 个迭代器专项测试用例：
 
-- 正向遍历（`operator*`、`operator++`）
-- 反向遍历（`operator--`）
-- 范围 `for` 循环（C++11 语法，值传递）
-- 前置 `++` 与后置 `++` 语义区别
-- 前置 `--` 与后置 `--` 语义区别
-- 迭代器比较运算符（`==` 与 `!=`）
-- 越界访问异常安全性（`++end()`、`--begin()`、`(end)++` 均抛异常）
-- 范围查询迭代（`range(left, right)` 闭区间）
-- 空表迭代行为（`begin == end`）
-- 基于迭代器的删除（`erase`）
-- 迭代器标签验证（`bidirectional_iterator_tag`）
+覆盖 **19** 个迭代器专项测试用例：
+
+| # | 测试项 | 说明 |
+|---|--------|------|
+| 1 | 正向遍历 | `operator*` 解引用与前置 `operator++` |
+| 2 | 反向遍历 | `operator--` 与 `operator->` |
+| 3 | 范围 for | C++11 语法糖，值传递 View |
+| 4 | 前置++ vs 后置++ | 语义差异验证（返回值 vs 迭代器位置） |
+| 5 | 前置-- vs 后置-- | 语义差异验证（返回值 vs 迭代器位置） |
+| 6 | 比较运算符 | `==` 与 `!=` 正确性 |
+| 7 | 越界异常安全 | `++end()`、`--begin()`、`(end)++`、`(begin)--` 均抛异常 |
+| 8 | 范围查询迭代 | `range(left, right)` 闭区间遍历 |
+| 9 | 空表迭代 | `begin == end`，空表遍历零次 |
+| 10 | 迭代器删除 | `erase(it)` 返回下一个有效迭代器 |
+| 11 | 迭代器标签 | `bidirectional_iterator_tag` 与 `iterator_traits` 验证 |
+| 12 | `->` 与 `*` 一致性 | `it->data()` 与 `(*it).data()` 返回同一对象 |
+| 13 | `View::ref()` | 通过引用修改非主键字段并持久化 |
+| 14 | `--end()` 反向遍历 | 从尾哨兵前驱开始完整反向遍历 |
+| 15 | 迭代器拷贝 | 拷贝构造/赋值后迭代器独立推进 |
+| 16 | `front` / `back` | 首尾节点字段访问 |
+| 17 | `prefix_to(key)` | 前缀范围查询（首节点到指定 key） |
+| 18 | `suffix_from(key)` | 后缀范围查询（指定 key 到尾节点） |
+| 19 | `pop_front` / `pop_back` | 首尾删除，节点回收与长度更新 |
+
 ```
-# 11/11 通过
+# 19/19 通过
 ```
 
 ### 性能测试（test2.cpp）
@@ -264,6 +281,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | 检查项 | 状态 |
 |--------|------|
 | 功能完整性测试 | 59/59 通过 |
+| 迭代器专项测试 | 19/19 通过 |
 | AddressSanitizer（内存泄漏检测） | 通过 |
 | 代码覆盖率 | 函数覆盖 95%（114/120）|
 
