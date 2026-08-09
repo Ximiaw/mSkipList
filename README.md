@@ -284,7 +284,7 @@ Degradation scenario (gap=50000, max_deep=1, forced degradation to singly linked
 | Functional completeness tests | 59/59 passed |
 | Iterator-specific tests | 20/20 passed |
 | AddressSanitizer (memory leak detection) | Passed |
-| Code coverage | Function coverage 95% (114/120) |
+| Code coverage | Functions 100% (54/54), Lines 98.78% (405/410) |
 
 ## Design Highlights
 
