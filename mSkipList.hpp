@@ -261,9 +261,8 @@ namespace msl{
         int right_to_indexed_child(T* node,int deep){
             if(!node) return 0;
             int count=1;
-            while (true)
+            while (node->rightIndex.size()>=deep+1)
             {
-                if(node->rightIndex.size()<deep+1) return count;
                 node=node->rightIndex[deep];
                 ++count;
             }
@@ -378,8 +377,7 @@ namespace msl{
             while(true){
                 if(a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key))
                     return ptr;
-                if(ptr->rightIndex.size()<deep+1){
-                    if(deep==0) return ptr;
+                if(deep>0&&ptr->rightIndex.size()<deep+1){
                     --deep;
                     continue;
                 }
