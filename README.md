@@ -195,9 +195,9 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 
 ## Tests
 
-The project includes three test suites (O3 optimized):
+The project includes four test suites (O3 optimized):
 
-### Functional Test (test0.cpp)
+### Functional Test (test_functional.cpp)
 Covers 9 major test groups, 59 test cases:
 
 - Construction and factory functions
@@ -213,9 +213,9 @@ Covers 9 major test groups, 59 test cases:
 # 59/59 passed
 ```
 
-### Iterator Test (test1.cpp)
+### Iterator Test (test_iterator.cpp)
 
-Covers **19** iterator-specific test cases:
+Covers **20** iterator-specific test groups:
 
 | # | Test Item | Description |
 |---|-----------|-------------|
@@ -237,16 +237,17 @@ Covers **19** iterator-specific test cases:
 | 16 | `front` / `back` | First and last node field access |
 | 17 | `prefix_to(key)` | Prefix range query (from first node to specified key) |
 | 18 | `suffix_from(key)` | Suffix range query (from specified key to tail node) |
+| 18b | Range query boundary conditions | Out-of-range keys return empty/partial ranges instead of crashing |
 | 19 | `pop_front` / `pop_back` | First/last node erasure, node recycling, and size update |
 
 ```
-# 19/19 passed
+# 20/20 passed
 ```
 
-### Performance Test (test2.cpp)
+### Performance Test (test_performance.cpp)
 
 > Environment: GCC 13+, `-O3`, 1 million data entries, key range 1~500,000, average of 5 runs.  
-> See `test2.cpp` for test code; `std::map` uses `find()` for pure lookup and `erase()` for pure deletion, avoiding the insertion side effect of `operator[]`.
+> See `test_performance.cpp` for test code; `std::map` uses `find()` for pure lookup and `erase()` for pure deletion, avoiding the insertion side effect of `operator[]`.
 
 | Scenario | Operation | std::map | mSkipList | Multiple (Skip List / Map) |
 |----------|-----------|----------|-----------|---------------------------|
@@ -257,9 +258,9 @@ Covers **19** iterator-specific test cases:
 | | Lookup | ~100 ms | ~76 ms | **~0.76×** ✅ |
 | | Erase | ~57 ms | ~115 ms | **~2.0×** |
 
-### Micro-Benchmark (test3.cpp)
+### Micro-Benchmark (test_benchmark.cpp)
 
-Uses rigorous testing methodology with isolated instances + cache warm-up + compiler optimization elimination prevention (test3.cpp), data scale 50,000, default parameters (gap=3, max_deep=-1):
+Uses rigorous testing methodology with isolated instances + cache warm-up + compiler optimization elimination prevention (test_benchmark.cpp), data scale 50,000, default parameters (gap=3, max_deep=-1):
 
 | Operation | Min | Max | Average | Description |
 |-----------|-----|-----|---------|-------------|
@@ -281,7 +282,7 @@ Degradation scenario (gap=50000, max_deep=1, forced degradation to singly linked
 | Check Item | Status |
 |------------|--------|
 | Functional completeness tests | 59/59 passed |
-| Iterator-specific tests | 19/19 passed |
+| Iterator-specific tests | 20/20 passed |
 | AddressSanitizer (memory leak detection) | Passed |
 | Code coverage | Function coverage 95% (114/120) |
 

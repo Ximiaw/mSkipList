@@ -474,6 +474,91 @@ int main() {
 
 
     // ============================================================
+    print_title("测试 18b: 范围查询边界条件");
+    // ============================================================
+    {
+        // 当前节点: 5, 15, 20, 25, 30
+        // range 左边界小于最小 key → [min, right]
+        {
+            auto rng = list.range(0, 25);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            bool ok = (ks.size() == 4 && ks[0] == 5 && ks[3] == 25);
+            check("range(0,25) 返回 5,15,20,25", ok);
+        }
+        // range 左右边界都小于最小 key → 空
+        {
+            auto rng = list.range(1, 4);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            check("range(1,4) 为空", ks.empty());
+        }
+        // range 左边界大于最大 key → 空
+        {
+            auto rng = list.range(100, 200);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            check("range(100,200) 为空", ks.empty());
+        }
+        // suffix_from 最小 key → 整个表
+        {
+            auto rng = list.suffix_from(5);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            bool ok = (ks.size() == 5 && ks[0] == 5 && ks[4] == 30);
+            check("suffix_from(5) 返回全部节点", ok);
+        }
+        // suffix_from key 小于最小 key → 整个表
+        {
+            auto rng = list.suffix_from(1);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            bool ok = (ks.size() == 5 && ks[0] == 5 && ks[4] == 30);
+            check("suffix_from(1) 返回全部节点", ok);
+        }
+        // suffix_from key 大于最大 key → 空
+        {
+            auto rng = list.suffix_from(100);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            check("suffix_from(100) 为空", ks.empty());
+        }
+        // suffix_from key 不存在且位于中间 → 从大于 key 的最小节点开始
+        {
+            auto rng = list.suffix_from(18);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            bool ok = (ks.size() == 3 && ks[0] == 20 && ks[2] == 30);
+            check("suffix_from(18) 返回 20,25,30", ok);
+        }
+        // prefix_to key 小于最小 key → 空
+        {
+            auto rng = list.prefix_to(3);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            check("prefix_to(3) 为空", ks.empty());
+        }
+        // prefix_to key 大于最大 key → 整个表
+        {
+            auto rng = list.prefix_to(100);
+            std::vector<int> ks;
+            for (auto it = rng.begin(); it != rng.end(); ++it)
+                ks.push_back(get_key(*it));
+            bool ok = (ks.size() == 5 && ks[0] == 5 && ks[4] == 30);
+            check("prefix_to(100) 返回全部节点", ok);
+        }
+    }
+
+
+    // ============================================================
     print_title("测试 19: pop_front() / pop_back() 首尾删除");
     // ============================================================
     {

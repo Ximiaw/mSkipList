@@ -582,15 +582,31 @@ namespace msl{
             return iterator{first,last,last};
         };
         Range<NODE,keyIndex,T_D...> range(std::tuple_element_t<keyIndex,std::tuple<T_D...>> left,std::tuple_element_t<keyIndex,std::tuple<T_D...>> right){
+            // 定位左边界：find 返回等于 left 的节点、小于 left 的最大节点，或 left 比全部 key 都小时返回 first
             auto ptr=algorithm.find(left);
-            NODE* l=ptr->leftIndex[0];
-            if(!algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,left)){
+            NODE* l;
+            NODE* start;
+            if(ptr==first){
+                l=first;
+                start=first->rightIndex[0];
+            }else if(algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,left)){
+                l=ptr->leftIndex[0];
+                start=ptr;
+            }else{
                 l=ptr;
-                ptr=ptr->rightIndex[0];
+                start=ptr->rightIndex[0];
             }
+            // 定位右边界：r_end 为排他的结束哨兵
             auto r=algorithm.find(right);
-            r=r->rightIndex[0];
-            return Range<NODE,keyIndex,T_D...>{iterator{l,r,ptr},iterator{l,r,r}};
+            NODE* r_end;
+            if(r==first){
+                r_end=first->rightIndex[0];
+            }else if(algorithm.a_is_equal_to_b(r,r->data().data(),nullptr,right)){
+                r_end=r->rightIndex[0];
+            }else{
+                r_end=r->rightIndex[0];
+            }
+            return Range<NODE,keyIndex,T_D...>{iterator{l,r_end,start},iterator{l,r_end,r_end}};
         };
         void insert(T_D... td){
             auto key=std::get<keyIndex>(std::make_tuple(td...));
@@ -634,14 +650,19 @@ namespace msl{
         Range<NODE,keyIndex,T_D...> suffix_from(std::tuple_element_t<keyIndex,std::tuple<T_D...>> key){
             if(length==0) throw std::runtime_error("no data");
             auto ptr=algorithm.find(key);
-            if(ptr->leftIndex[0]==first) throw std::runtime_error("The scope of the error.");
-            auto l=ptr->leftIndex[0];
-            if(!algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)){
+            NODE* l;
+            NODE* start;
+            if(ptr==first){
+                l=first;
+                start=first->rightIndex[0];
+            }else if(algorithm.a_is_equal_to_b(ptr,ptr->data().data(),nullptr,key)){
+                l=ptr->leftIndex[0];
+                start=ptr;
+            }else{
                 l=ptr;
-                if(ptr->rightIndex[0]==last) throw std::runtime_error("The scope of the error.");
-                ptr=ptr->rightIndex[0];
+                start=ptr->rightIndex[0];
             }
-            return Range<NODE,keyIndex,T_D...>{iterator{l,last,ptr}
+            return Range<NODE,keyIndex,T_D...>{iterator{l,last,start}
                 ,iterator{l,last,last}};
         };
         template<typename Type>

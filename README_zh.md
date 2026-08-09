@@ -195,9 +195,9 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 
 ## 测试
 
-项目包含三组测试(O3优化)：
+项目包含四组测试(O3优化)：
 
-### 功能测试（test0.cpp）
+### 功能测试（test_functional.cpp）
 覆盖 9 大测试组、59 个测试用例：
 
 - 构造与工厂函数
@@ -213,9 +213,9 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 # 59/59 通过
 ```
 
-### 迭代器测试（test1.cpp）
+### 迭代器测试（test_iterator.cpp）
 
-覆盖 **19** 个迭代器专项测试用例：
+覆盖 **20** 个迭代器专项测试组：
 
 | # | 测试项 | 说明 |
 |---|--------|------|
@@ -237,16 +237,17 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | 16 | `front` / `back` | 首尾节点字段访问 |
 | 17 | `prefix_to(key)` | 前缀范围查询（首节点到指定 key） |
 | 18 | `suffix_from(key)` | 后缀范围查询（指定 key 到尾节点） |
+| 18b | 范围查询边界条件 | 越界 key 返回空/部分区间而非崩溃 |
 | 19 | `pop_front` / `pop_back` | 首尾删除，节点回收与长度更新 |
 
 ```
-# 19/19 通过
+# 20/20 通过
 ```
 
-### 性能测试（test2.cpp）
+### 性能测试（test_performance.cpp）
 
 > 环境：GCC 13+，`-O3`，100 万条数据，键值范围 1~50 万，取 5 次运行平均值。  
-> 测试代码见 `test2.cpp`，`std::map` 使用 `find()` 纯查找、`erase()` 纯删除，避免 `operator[]` 的插入副作用。
+> 测试代码见 `test_performance.cpp`，`std::map` 使用 `find()` 纯查找、`erase()` 纯删除，避免 `operator[]` 的插入副作用。
 
 | 场景 | 操作 | std::map | mSkipList | 倍数 (跳表/map) |
 |------|------|----------|-----------|-----------------|
@@ -257,9 +258,9 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | | 查找 | ~100 ms | ~76 ms | **~0.76×** ✅ |
 | | 删除 | ~57 ms | ~115 ms | **~2.0×** |
 
-### 微基准测试（test3.cpp）
+### 微基准测试（test_benchmark.cpp）
 
-采用独立实例法 + 缓存预热 + 防编译器优化消除的严谨测试方法（test3.cpp），数据规模 50000，默认参数（gap=3, max_deep=-1）：
+采用独立实例法 + 缓存预热 + 防编译器优化消除的严谨测试方法（test_benchmark.cpp），数据规模 50000，默认参数（gap=3, max_deep=-1）：
 
 | 操作 | 最小 | 最大 | 平均 | 说明 |
 |------|------|------|------|------|
@@ -281,7 +282,7 @@ const int& id = list.get<int>(std::string("Alice"), 0);
 | 检查项 | 状态 |
 |--------|------|
 | 功能完整性测试 | 59/59 通过 |
-| 迭代器专项测试 | 19/19 通过 |
+| 迭代器专项测试 | 20/20 通过 |
 | AddressSanitizer（内存泄漏检测） | 通过 |
 | 代码覆盖率 | 函数覆盖 95%（114/120）|
 
